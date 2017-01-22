@@ -61,6 +61,8 @@ def test_vl():
     assert e.pack_variable_length(b, False) == a
     with pytest.raises(ValueError):
         assert e.unpack_variable_length(a)
+    with pytest.raises(ValueError):
+        assert e.pack_variable_length(b)
 
     for a in [-1, 2**28]:
         with pytest.raises(ValueError):

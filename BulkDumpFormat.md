@@ -10,9 +10,9 @@ This page will be using some of the same conventions.
 When the **Bulk Send** option is selected (see manual p.72),
 41 System Exclusive Messages are sent through the instrument's MIDI connection
 (over USB, of course).
-Other messages, especially the *Clock* messages that are sent constantly When
-**External Clock** is set OFF, are not transmitted during this time, which means
-that when you start seeing those the dump has completed.
+Other messages, especially the *Clock* messages that are sent constantly when
+**External Clock** is set OFF, are not transmitted during this time &mdash;
+which means that when you start seeing those, the dump has completed.
 (I'm pretty sure Active Sensing is still sent at all times, though.)
 
 The first 38 messages carry the user song data, message 39 signals the end of
@@ -49,8 +49,8 @@ taking the highest bit from each and putting them into a new eighth byte after
 the seven.
 
 For example, the following sequence of bytes:
-> __1__1001001 __0__0001111 __1__1011010 __1__0100010
-> __0__0100001 __0__1101000 __1__1000010
+> **1**1001001 **0**0001111 **1**1011010 **1**0100010
+> **0**0100001 **0**1101000 **1**1000010
 
 when encoded, becomes:
 
@@ -88,7 +88,7 @@ The lowest bit corresponds to the first song, that is:
 * `08` = Song 4
 * `10` = Song 5
 
-A value of `1A` = 000__11010__ would mean that user songs 2, 4, and 5 are in
+A value of `1A` = 000**11010** would mean that user songs 2, 4, and 5 are in
 use, for example.
 
 ### Mystery Region
@@ -111,7 +111,7 @@ for the recorded tracks in user songs 1 through 5 respectively.
 * `10` = Track 5
 * `20` = Track A (Style/Chord track)
 
-For example, if the byte at offset `0015E` had value `29` = 00__101001__,
+For example, if the byte at offset `0015E` had value `29` = 00**101001**,
 that would mean that User Song 2 had tracks 1, 4, and A recorded.
 
 ### Five Bytes of Nothing
@@ -136,11 +136,11 @@ Immediately after the song durations follow thirty more 32-bit integers
 at `0017B`, Song 1 Track 2 at `0017F` and so on all the way to Song 5 Track A
 at `001EF`. Tracks not recorded have zero duration.
 
-### "Preset Style"
+### "PresetStyle"
 Offset: `001F3`, Length: `C` &times; 5
 
 Then we have the sequence `50 72 65 73 65 74 53 74 79 6C 65 00` repeated five
-times. When decoded to ASCII, this reads "Preset Style" plus a null byte.
+times. When decoded to ASCII, this reads "PresetStyle" plus a null byte.
 (Probably some of those C-style null-terminated strings.)
 
 ### Beginning Blocks
