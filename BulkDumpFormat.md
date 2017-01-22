@@ -201,12 +201,74 @@ Offset: `106D5`, Length: `6`
 After all 66560 bytes of data, another "PK0001" marks the end.
 
 ## User Song MIDI
-### The Time track and proprietary (meta-)events
+### The Time track and proprietary (meta-)events (WIP)
 In addition to storing the style and chord information (as proprietary SysEx
 and meta-events) from Track A, the time track also contains the time signature
 and tempo meta-events (and a bunch of other things).
 For this reason, the time track is present for all songs in use whether Track
 A is recorded or not.
+
+*The meta-events seem to be similar to those of the PSR-225 with the exception
+of the chord meta-events (especially the chord root byte)*
+
+#### SysEx events (see also manual p.111)
+##### GM System On
+`F0 7E 7F 09 01 F7`
+
+##### Reverb Type
+`F0 43 15 4C 02 01 00 mm ll F7`
+
+* `mm` = MSB
+* `ll` = LSB
+
+##### Chorus Type
+`F0 43 15 4C 02 01 20 mm ll F7`
+
+* `mm` = MSB
+* `ll` = LSB
+
+#### Proprietary Meta-Events
+`43 76 1A tt ...`, where `tt` is the type:
+
+* `01` = Section Change
+* `02` = Accompaniment Volume
+* `03` = Chord
+* `04` = Style no.
+
+##### Section Change
+`43 76 1A 01 xx`
+
+* `00` = Main A
+* `01` =
+* `02` = Fill AB
+* `03` =
+* `04` =
+* `05` = Main B
+* `06` = Fill BA
+* `07` =
+* `08` =
+* `09` =
+
+*(This one needs more experimentation)*
+
+##### Style Volume?
+`43 76 1A 02 vv`
+
+*(Also needs more experimentation)*
+
+##### Chord
+`43 71 1A 03 rr tt rr tt`
+
+*Similar to the PSR-225 but the two sets are sometimes
+ different and rr is different*
+
+##### Style
+`43 71 1A 04 ss ss`
+
+where ss is the style number, minus 1.
+
+*I'm not sure why two bits are needed but maybe there's
+byte splitting or something. More experimentation required*
 
 ### Extracting the song as a MIDI file
 Each track is stored as a Standard MIDI *MTrk* chunk. To create a MIDI file
@@ -223,7 +285,9 @@ of, say, User Song 1, this procedure should broadly work:
        (the leftovers from previous recordings)
   5. Repeat for all the tracks.
   6. Construct a *MThd* chunk and assemble the MIDI file.
-     * The format needs to be *Type 1*, and the time track goes first.
+     * The format needs to be *Type 1*
+     * division = 96 ticks per quarter-note (i.e. `00 60`)
+     * The time track goes first.
 
 ## Registration (a.k.a. One-Touch-Settings) data format
 ### Overall Structure
