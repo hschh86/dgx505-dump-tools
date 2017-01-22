@@ -4,21 +4,6 @@ import struct
 import argparse
 
 
-
-# TEMPORARY -- DEPRECATE LATER
-def read_hex_syx(filename):
-    # workaround, to get avoid a bug? in mido 1.1.18
-    # (bytearray.fromhex doesn't like newlines...)
-    with open(filename, 'r', errors='replace') as infile:
-        hex_lines = infile.readlines()
-
-    # maybe... return mido.parse_all(itertools.chain(bytearray.fromhex(line) for line in data.splitlines())) ??
-    data = bytearray()
-    for line in hex_lines:
-        data.extend(bytearray.fromhex(line.strip()))
-    return [msg for msg in mido.Parser(data) if msg.type == 'sysex']
-
-
 # Utility for reading syx files.
 # Probably should be somewhere else
 def read_syx_file(infile):
@@ -49,77 +34,10 @@ def unpack_seven(inbytes):
         value = (value << 7) | b
     return value
 
-# just for completeness' sake
-def seven_byte_length(value):
-    """Returns the minimum number of bytes required to represent the integer
-    if we can use seven bits per byte.
-    Positive integers only, please!"""
-    q, rem = divmod(value.bit_length(), 7)
-    if rem or not q: # (the not q is in case value is 0, we can't have 0 bytes)
-        q += 1
-    return q
-def pack_seven(value, length=None):
-    """Packs a positive integer value into the seven-bit representation used
-    in the sysex message data."""
-    if value < 0:
-        raise ValueError("Value is negative: {}".format(value))
-    minlen = seven_byte_length(value)
-    if length is None:
-        length = minlen
-    else:
-        # if 2**(7*length) < value...
-        if minlen > length:
-            raise ValueError("Length too short to fit value")
-    dest = bytearray(length)
-    for i in range(minlen):
-        dest[i] = (value & 0x7F)
-        value >>= 7
-    return bytes(reversed(dest))
-
-
 def slicebyn(obj, n, end=None):
     if end is None:
         end = len(obj)
     return (obj[i:i+n] for i in range(0, end, n))
-
-
-def unpack_variable_length(inbytes, limit=True):
-    """Reconstruct a number from the variable-length representation used
-    in Standard MIDI files. This version only accepts just the entire sequence
-    (that is, last byte must have high bit 0, all other bytes must have
-    high bit 1).
-    In actual MIDI files, the max length is four bytes. ValueError raised if
-    length of inbytes exceeds four. (set limit=False to override this)
-    """
-    if limit and len(inbytes) > 4:
-        raise ValueError("Sequence too long: {}".format(len(inbytes)))
-
-    value = 0
-    last = len(inbytes)-1
-    for i, b in enumerate(inbytes):
-        # check for validity
-        if (b > 0x7F) is not (i < last):
-            raise ValueError("Byte sequence not valid")
-        value = (value << 7) | (b & 0x7F)
-    return value
-
-def pack_variable_length(value, limit=True):
-    """Encode a positive integer as a variable-length number used in
-    Standard MIDI files.
-    ValueError rasied if value is over 0x0FFFFFFF (=would require >4 bytes).
-    Set limit=False to override this."""
-    if value < 0:
-        raise ValueError("Value is negative: {}".format(value))
-    if limit and value > 0x0FFFFFFF:
-        raise ValueError("Value too large: {}".format(value))
-
-    dest = bytearray()
-    dest.append(value & 0x7F)
-    value >>= 7
-    while value:
-        dest.append((value & 0x7F) | 0x80)
-        value >>= 7
-    return bytes(reversed(dest))
 
 def reconstitute(inbytes):
     """Unpack a sequence of eight bytes into a bytearray of seven bytes
@@ -204,11 +122,6 @@ class DumpMessage(object):
             if len(self.payload) != self.a_size:
                 raise MessageParsingError("Content length mismatch")
 
-
-
-
-
-
 def checked_messages(messages, dt=None):
     run = 0
     for msg in messages:
@@ -231,7 +144,6 @@ def decode_section_messages(messages, dt=None):
         data.extend(reconstitute_all(dmsg.payload))
     return data
 
-
 class SongData(object):
     SONGS_OFFSET = 0x00
     MYSTERY_SLICE = slice(0x01, 0x15D)
@@ -250,12 +162,8 @@ class SongData(object):
     BLOCK_COUNT = 0x82
     BLOCK_SIZE = 0x200
 
-
-
-
     PRESETSTYLE = b'PresetStyle\0'*5
     MARKER = b'PK0001'
-
 
     def __init__(self, data):
 
@@ -309,11 +217,11 @@ class SongData(object):
 
     def track_from_block_iter(self, block_number):
         block = self.get_block_data(block_number)
-        # verify block
-        if block[:4] != b'MTrk':
+        # verify and read the length
+        tag, length = struct.unpack_from('>4sI', block, 0)
+        if tag != b'MTrk':
             raise MalformedDataError("Chunk start not found")
-        # read the length
-        datalen = struct.unpack_from('>I', block, 4)[0] + 8
+        datalen = length + 8
         # yield the blocks
         while datalen > self.BLOCK_SIZE:
             yield block
@@ -328,7 +236,7 @@ class SongData(object):
 
     @staticmethod
     def midi_header(track_count):
-        return b'MThd'+struct.pack('>I3H', 6, 1, track_count, 96)
+        return struct.pack('>4sI3H', b'MThd', 6, 1, track_count, 96)
 
     def midi_song_block_iter(self, song):
         # figure out which blocks
@@ -343,9 +251,6 @@ class SongData(object):
 
     def available_songs(self):
         return [i for i, has_song in enumerate(self.songsfield) if has_song]
-
-
-
 
 
 def filter_yamaha_sysex(messages):
