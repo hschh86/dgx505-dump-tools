@@ -1,5 +1,5 @@
 import mido
-#import itertools
+import itertools
 import sys
 import collections
 import os.path
@@ -9,6 +9,13 @@ import argparse
 YAMAHA = 0x43
 SONG_SECTION_BYTE = 0x0A
 REG_SECTION_BYTE = 0x09
+SECTION_NAMES = {SONG_SECTION_BYTE: "Song data",
+                 REG_SECTION_BYTE: "Registration data"}
+EXPECTED_LENGTH = {SONG_SECTION_BYTE: 76904, REG_SECTION_BYTE: 816}
+EXPECTED_COUNT = {SONG_SECTION_BYTE: 39, REG_SECTION_BYTE: 2}
+
+def errprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 # Basic exceptions
 class ExtractorError(Exception):
@@ -17,9 +24,11 @@ class MessageParsingError(ExtractorError):
     pass
 class MalformedDataError(ExtractorError):
     pass
+class NotRecordedError(ExtractorError):
+    pass
 
 DumpMessageTuple = collections.namedtuple(
-    'DumpMessageTuple', 'header section a_size b_size run payload end')
+    'DumpMessageTuple', 'message header section a_size b_size run payload end')
 def parse_dump_message(msg):
     HEADER_SLICE = slice(None, 5)
     TYPE_INDEX = 5
@@ -61,7 +70,8 @@ def parse_dump_message(msg):
             raise MessageParsingError("Content length mismatch")
         payload = reconstitute_all(rpayload)
 
-    return DumpMessageTuple(header, section, a_size, b_size, run, payload, end)
+    return DumpMessageTuple(msg, header, section,
+                            a_size, b_size, run, payload, end)
 
 def dump_message_section(messages, section=None, verbose=False):
     run = 0
@@ -69,36 +79,39 @@ def dump_message_section(messages, section=None, verbose=False):
     dm = next(dmessages)
     if section is None:
         section = dm.section
+    if verbose:
+        count = 0
+        section_name = SECTION_NAMES.get(section, "{:02X}".format(section))
+        expected_count = EXPECTED_COUNT.get(section, "?")
+        expected_run = EXPECTED_LENGTH.get(section, "?")
+        count_len = len(str(expected_count))
+        run_len = len(str(expected_run))
+        errprint("Section: {}".format(section_name))
     while not dm.end:
         if dm.section != section:
             raise MessageParsingError("Type mismatch")
         if dm.run != run:
             raise MessageParsingError("Running count mismatch")
         run += dm.a_size
+        if verbose:
+            count += 1
+            errprint("Message {:>{cl}} of {}, {:>{rl}}/{} data bytes recieved".format(
+                count, expected_count, run, expected_run,
+                cl=count_len, rl=run_len))
         yield dm
         dm = next(dmessages)
+    if verbose:
+        count += 1
+        errprint("Message {:>{cl}} of {}, end of section".format(
+            count, expected_count, cl=count_len, rl=run_len))
+    yield dm
 
-def decode_section_messages(messages, section=None):
-    return b''.join(dm.payload for dm in dump_message_section(messages, section))
+def decode_section_messages(messages, section=None, verbose=False):
+    # collect messages
+    dump_messages = list(dump_message_section(messages, section, verbose))
+    full_payload = b''.join(dm.payload for dm in dump_messages if dm.payload)
+    return dump_messages, full_payload
 
-
-# Utility for reading syx files.
-# Probably should be somewhere else
-def read_syx_file(infile):
-    # like mido.read_syx_file, but takes a binary mode file object instead.
-    data = infile.read()
-
-    if data[0] != 0xf0:
-        # this makes a new copy of the entire data
-        # just to throw it away again... but i don't particularly care
-        data = bytearray.fromhex(
-            data.translate(None, b'\t\n\r\f\v').decode('latin1'))
-    return mido.parse_all(data)
-
-def write_syx_file(outfile, messages):
-    for message in messages:
-        if message.type == 'sysex':
-            outfile.write(message.bin())
 
 # Fun Binary Tools
 def assert_low(byte):
@@ -163,11 +176,15 @@ def boolean_bitarray_tuple(byte, length=8):
 
 
 
-
 class SongData(object):
 
     BLOCK_COUNT = 0x82
     BLOCK_SIZE = 0x200
+    SongInfoTuple = collections.namedtuple(
+        "SongInfoTuple",
+        'name song_active song_duration tracks_active tracks_duration')
+    TRACK_NAMES = ('1', '2', '3', '4', '5', 'A')
+
 
     def __init__(self, data):
 
@@ -261,32 +278,57 @@ class SongData(object):
     def midi_header(track_count):
         return struct.pack('>4sI3H', b'MThd', 6, 1, track_count, 96)
 
-    def midi_song_block_iter(self, song):
+    def midi_song_block_iter(self, n):
         # figure out which blocks
-        songblocks = [x for x in self._bblocks[song] if x != 0xFF]
+        songblocks = [x for x in self._bblocks[n] if x != 0xFF]
         yield self.midi_header(len(songblocks))
         # we want the time track first
         for i in range(-1, len(songblocks)-1):
             yield from self.track_from_block_iter(songblocks[i])
 
     def get_midi_song(self, song):
-        if not self.songsfield[song]:
-            raise ValueError("Song not recorded")
-        if not self._songsmidi[song]:
-            self._songsmidi[song] = b''.join(self.midi_song_block_iter(song))
-        return self._songsmidi[song]
-
-    def available_song_indices(self):
-        return [i for i, has_song in enumerate(self.songsfield) if has_song]
+        if not 1 <= song <= 5:
+            raise ValueError("Invalid song number: {}".format(song))
+        n = song-1
+        if not self.songsfield[n]:
+            raise NotRecordedError("Song not recorded")
+        if not self._songsmidi[n]:
+            self._songsmidi[n] = b''.join(self.midi_song_block_iter(n))
+        return self._songsmidi[n]
 
     def all_available_songs(self):
-        for i in range(5):
+        for i in range(1, 5+1):
             try:
                 midi = self.get_midi_song(i)
             except ValueError:
                 pass
             else:
                 yield i, midi
+
+    def song_info(self, song):
+        if not 1 <= song <= 5:
+            raise ValueError("Invalid song number: {}".format(song))
+        n = song-1
+        name = "User Song {}".format(song)
+        song_active = self.songsfield[n]
+        song_duration = self.song_durations[n]
+        tracks_active = self.tracksfield[n]
+        tracks_duration = self.track_durations[n]
+        return self.SongInfoTuple(name, song_active, song_duration,
+                                  tracks_active, tracks_duration)
+
+    def print_song_info(self, song):
+        columns = "{:>10} {!s:>10} {:>10}".format
+        info = self.song_info(song)
+        print(info.name)
+        if info.song_active:
+            print(columns("", "Recorded", "Duration"))
+            print(columns("all", info.song_active, info.song_duration))
+            for track, active, duration in zip(
+                self.TRACK_NAMES, info.tracks_active, info.tracks_duration):
+                print(columns("Track "+track, active, duration))
+        else:
+            print("Song not recorded.")
 
 class RegData(object):
 
@@ -326,27 +368,27 @@ class RegData(object):
          3: "03 Block",
          4: "04 Country",
          5: "05 Octave",
-         6: "06 Trill 1/4 note",
-         7: "07 Trill 1/6 note",
-         8: "08 Trill 1/8 note",
-         9: "09 Trill 1/12 note",
-        10: "10 Trill 1/16 note",
-        11: "11 Trill 1/24 note",
-        12: "12 Trill 1/32 note",
-        13: "13 Tremolo 1/4 note",
-        14: "14 Tremolo 1/6 note",
-        15: "15 Tremolo 1/8 note",
-        16: "16 Tremolo 1/12 note",
-        17: "17 Tremolo 1/16 note",
-        18: "18 Tremolo 1/24 note",
-        19: "19 Tremolo 1/32 note",
-        20: "20 Echo 1/4 note",
-        21: "21 Echo 1/6 note",
-        22: "22 Echo 1/8 note",
-        23: "23 Echo 1/12 note",
-        24: "24 Echo 1/16 note",
-        25: "25 Echo 1/24 note",
-        26: "26 Echo 1/32 note"
+         6: "06 Trill 1/4",
+         7: "07 Trill 1/6",
+         8: "08 Trill 1/8",
+         9: "09 Trill 1/12",
+        10: "10 Trill 1/16",
+        11: "11 Trill 1/24",
+        12: "12 Trill 1/32",
+        13: "13 Tremolo 1/4",
+        14: "14 Tremolo 1/6",
+        15: "15 Tremolo 1/8",
+        16: "16 Tremolo 1/12",
+        17: "17 Tremolo 1/16",
+        18: "18 Tremolo 1/24",
+        19: "19 Tremolo 1/32",
+        20: "20 Echo 1/4",
+        21: "21 Echo 1/6",
+        22: "22 Echo 1/8",
+        23: "23 Echo 1/12",
+        24: "24 Echo 1/16",
+        25: "25 Echo 1/24",
+        26: "26 Echo 1/32"
     }
 
     BOOL_MAP = {
@@ -372,52 +414,55 @@ class RegData(object):
     }
 
 
-    REG_SETTING_NAMES =  [
+    REG_SETTING_FORMATS =  collections.OrderedDict([
         # front panel
-        "Style number",
-        "Accompaniment",
-        "Main A/B",
-        "Tempo",
+        ("Style number", "03d"),
+        ("Accompaniment", "s"),
+        ("Main A/B", "s"),
+        ("Tempo", "3d"),
 
-        "Main Voice number",
-        "Dual Voice number",
-        "Split Voice number",
+        ("Main Voice number", "03d"),
+        ("Dual Voice number", "03d"),
+        ("Split Voice number", "03d"),
 
-        "Harmony",
-        "Dual",
-        "Split",
+        ("Harmony", "s"),
+        ("Dual", "s"),
+        ("Split", "s"),
 
         # function menu
-        "Style Volume",
-        "Transpose",
-        "Pitch Bend Range",
-        "Split Point",
+        ("Style Volume", "03d"),
+        ("Transpose", "02d"),
+        ("Pitch Bend Range", "02d"),
+        ("Split Point", "03d"),
 
-        "M. Volume",
-        "M. Octave",
-        "M. Pan",
-        "M. Reverb Level",
-        "M. Chorus Level",
+        ("M. Volume", "03d"),
+        ("M. Octave", "1d"),
+        ("M. Pan", "03d"),
+        ("M. Reverb Level", "03d"),
+        ("M. Chorus Level", "03d"),
 
-        "D. Volume",
-        "D. Octave",
-        "D. Pan",
-        "D. Reverb Level",
-        "D. Chorus Level",
+        ("D. Volume", "03d"),
+        ("D. Octave", "1d"),
+        ("D. Pan", "03d"),
+        ("D. Reverb Level", "03d"),
+        ("D. Chorus Level", "03d"),
 
-        "S. Volume",
-        "S. Octave",
-        "S. Pan",
-        "S. Reverb Level",
-        "S. Chorus Level",
+        ("S. Volume", "03d"),
+        ("S. Octave", "1d"),
+        ("S. Pan", "03d"),
+        ("S. Reverb Level", "03d"),
+        ("S. Chorus Level", "03d"),
 
-        "Reverb Type",
-        "Chorus Type",
-        "Sustain",
+        ("Reverb Type", "s"),
+        ("Chorus Type", "s"),
+        ("Sustain", "s"),
 
-        "Harmony Type",
-        "Harmony Volume"
-    ]
+        ("Harmony Type", "s"),
+        ("Harmony Volume", "03d")
+    ])
+    REG_SETTING_NAMES = REG_SETTING_FORMATS.keys()
+
+
 
     SFORMAT = '> B BBbbBB Hbbbbb bHbbbbb bHbbbbb bBB bBb B BB 2s B 2s'
 
@@ -442,22 +487,38 @@ class RegData(object):
             raise MalformedDataError("Invalid format")
 
         setting_section = self._data[SETTINGS_SLICE]
-        button_sections = slicebyn(setting_section, self.SETTING_SIZE*8)
-        self.setting_data = [tuple(slicebyn(x, self.SETTING_SIZE)) for
-                              x in button_sections]
+        self._setting_data = tuple(slicebyn(setting_section, self.SETTING_SIZE))
 
-    def get_settings(self, button, bank):
-        return self.parse_setting_data(self.setting_data[button-1][bank-1])
+    def get_settings(self, bank, button):
+        if not 1 <= button <= 2:
+            raise ValueError("Invalid button: {}".format(button))
+        if not 1 <= bank <= 8:
+            raise ValueError("Invalid bank: {}".format(button))
+        n = (button-1)*8 + (bank-1)
+        return self.parse_setting_data(self._setting_data[n])
+
+    def print_settings(self, bank, button):
+        setting_values, unusual_list = self.get_settings(bank, button)
+        print("Bank {}, Button {}:".format(bank, button))
+        for key, value in setting_values.items():
+            try:
+                rep = format(value, self.REG_SETTING_FORMATS[key])
+            except (TypeError, ValueError):
+                rep = str(value)
+            print(" {:>18}: {:>3}".format(key,rep))
+        if unusual_list:
+            print(" {} unusual values:".format(len(unusual_list)))
+            for message in unusual_list:
+                print(" - {}".format(message))
 
     @classmethod
     def parse_setting_data(cls, data):
         parsed_values = collections.OrderedDict(
             (x, None) for x in cls.REG_SETTING_NAMES)
-        error_list = []
+        unusual_list = []
 
         def note_unusual(message):
-            error_list.append(message)
-            print(message, file=sys.stderr)
+            unusual_list.append(message)
 
         def range_check_assign(prop, val, lo=0, hi=127):
             if not (lo <= val <= hi):
@@ -471,7 +532,6 @@ class RegData(object):
                 note_unusual("{} unusual value: {}".format(val))
                 parsed_values[prop] = val
 
-        # Check for unexpected things
         (firstbyte,
          style_num, style_acmp, spoint1, spoint2, style_ab, style_vol,
          main_num, main_oct, main_vol, main_pan, main_rvb, main_chs,
@@ -563,57 +623,148 @@ class RegData(object):
         mapping_check_assign('Harmony Type', hmny_type, cls.HARMONY_MAP)
         range_check_assign('Harmony Volume', hmny_vol)
 
-        return parsed_values, error_list
+        return parsed_values, unusual_list
 
+def read_syx_file(infile):
+    # like mido.read_syx_file, but takes a binary mode file object instead.
+    data = infile.read()
+    parser = mido.Parser()
+    if data[0] == 0xF0:
+        parser.feed(data)
+    else:
+        for line in data.splitlines():
+            parser.feed(bytes.fromhex(line.decode('latin1').strip()))
+    return list(parser)
+
+def read_syx_file_lazy(infile):
+    # lazy version, for when you don't have EOF
+    first = infile.read(1)
+    parser = mido.Parser()
+    if first == b'\xF0':
+        parser.feed(first)
+        parser.feed(itertools.chain.from_iterable(infile))
+    else:
+        firstline = first + infile.readline()
+        parser.feed(bytes.fromhex(firstline.decode('latin1').strip()))
+        parser.feed(itertools.chain.from_iterable(
+            bytes.fromhex(line.decode('latin1').strip()) for line in infile))
+    yield from parser
+
+
+def write_syx_file(outfile, messages):
+    for message in messages:
+        if message.type == 'sysex':
+            outfile.write(message.bin())
 
 def filter_yamaha_sysex(messages):
-    for msg in messages:
-        if msg.type == 'sysex':
-            if msg.data[0] == YAMAHA:
-                yield msg
+    return (m for m in messages if m.type == 'sysex' and m.data[0] == YAMAHA)
 
-def aside_collector(seq, itr):
-    for item in itr:
-        seq.append(item)
-        yield item
-
-def read_dgx_dump(messages):
-    # the poor man's async
-    # TODO: actually test how long it takes
-    basket = []
-    stream = aside_collector(basket, filter_yamaha_sysex(messages))
-
-    song_data = decode_section_messages(stream, SONG_SECTION_BYTE)
-    reg_data = decode_section_messages(stream, REG_SECTION_BYTE)
-
-    return song_data, reg_data, basket
+def read_dgx_dump(messages, verbose=False, songonly=False):
+    stream = filter_yamaha_sysex(messages)
+    dmsgs, song_data = decode_section_messages(
+        stream, SONG_SECTION_BYTE, verbose)
+    if songonly:
+        reg_data = None
+    else:
+        reg_msgs, reg_data = decode_section_messages(
+            stream, REG_SECTION_BYTE, verbose)
+        dmsgs.extend(reg_msgs)
+    return dmsgs, song_data, reg_data
 
 
 
 
 # argparser stuff
 _argparser = argparse.ArgumentParser(description="Extract UserSong MIDI files from a sysex dump")
-_ingroup = _argparser.add_mutually_exclusive_group(required=True)
-_ingroup.add_argument('-p', '--port', type=str,
-                     help="Read from port (run 'mido-ports' to list available ports)")
-_ingroup.add_argument('-i', '--infile', type=str,
-                     help="Read from file")
-_argparser.add_argument('-o', '--outprefix', type=str, required=True, help="output file prefix")
+_argparser.add_argument('input', type=str,
+                        help="Port to read from (run 'mido-ports' to list available ports) / Filename")
+
+_ingroup = _argparser.add_argument_group("Input options")
+_ingroup.add_argument('-f', '--fileinput', action='store_true',
+                      help="Read from file instead of port")
+_ingroup.add_argument('-s', '--songonly', action='store_true',
+                     help='Ignore the registration memory data')
+
+_outgroup = _argparser.add_argument_group("Output options")
+_outgroup.add_argument('-m', '--midiprefix', type=str,
+                       help="write out usersong midi with this file prefix")
+_outgroup.add_argument('-d', '--dumpfile', type=str,
+                       help="write out syx dump with this filename"),
+_outgroup.add_argument('-c', '--clobber', action='store_true',
+                       help='overwrite files that already exist')
+
+_rgroup = _argparser.add_argument_group("Other options")
+_rgroup.add_argument('-v', '--verbose', action='store_true',
+                     help='Print progress messages to stderr')
+_rgroup.add_argument('-q', '--quiet', action='store_true',
+                     help="Don't print the song stats and one-touch-settings to stdout")
+
 
 if __name__ == "__main__":
 
     args = _argparser.parse_args()
 
-    if args.infile is not None:
-        with open(args.infile, 'rb') as infile:
-            messages = read_syx_file(infile)
-        dump_song_data, dump_reg_data, basket = read_dgx_dump(messages)
+    if args.fileinput:
+        if args.input == '-':
+            # stdin in binary mode
+            if args.verbose:
+                errprint("Reading from stdin")
+            messages = read_syx_file_lazy(sys.stdin.buffer)
+        else:
+            if args.verbose:
+                errprint("Reading from file {!r}".format(args.input))
+            with open(args.input, 'rb') as infile:
+                messages = read_syx_file(infile)
+        ddb = read_dgx_dump(messages, args.verbose, args.songonly)
     else:
-        with mido.open_input(args.port) as inport:
-            dump_song_data, dump_reg_data, basket = read_dgx_dump(inport)
+        if args.verbose:
+            errprint("Listening to port {!r}".format(args.input))
+        with mido.open_input(args.input) as inport:
+            ddb = read_dgx_dump(inport, args.verbose, args.songonly)
+        if args.verbose:
+            errprint("All messages read from port")
 
-    song_data = SongData(dump_song_data)
-    for i, midi in song_data.all_available_songs():
-        filename = "{}_UserSong{}.mid".format(args.outprefix, i+1)
-        with open(filename, 'xb') as outfile:
-            outfile.write(midi)
+    basket, dump_song_data, dump_reg_data = ddb
+
+    if args.clobber:
+        fmode = 'wb'
+    else:
+        fmode = 'xb'
+
+    if args.dumpfile is not None:
+        if args.verbose:
+            errprint("Writing dump file {!r}".format(args.dumpfile))
+        try:
+            with open(args.dumpfile, fmode) as outfile:
+                write_syx_file(outfile, (dm.message for dm in basket))
+        except FileExistsError:
+            errprint("Error: file exists: {!r}. Ignoring...".format(
+                args.dumpfile))
+
+    songs = SongData(dump_song_data)
+    for i in range(1, 5+1):
+        if not args.quiet:
+            songs.print_song_info(i)
+            print()
+        if args.midiprefix is not None:
+            try:
+                midi = songs.get_midi_song(i)
+            except NotRecordedError:
+                pass
+            else:
+                filename = "{}_UserSong{}.mid".format(args.midiprefix, i)
+                if args.verbose:
+                    errprint("Writing midi file {!r}".format(filename))
+                try:
+                    with open(filename, fmode) as outfile:
+                        outfile.write(midi)
+                except FileExistsError:
+                    errprint("Error: file exists: {!r}. Ignoring...".format(
+                        args.dumpfile))
+
+    if not (args.quiet or args.songonly):
+        regs = RegData(dump_reg_data)
+        for bank in range(1, 8+1):
+            for button in range(1, 2+1):
+                regs.print_settings(bank, button)
+                print()

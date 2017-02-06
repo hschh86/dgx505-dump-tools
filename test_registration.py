@@ -137,7 +137,7 @@ F0 43 73 7F 44 06 09 00 01 00 01 7F 7F 7F F7
     'Chorus Type': '05 Off',
     'Sustain': 'ON',
     'Harmony': 'ON',
-    'Harmony Type': '26 Echo 1/32 note',
+    'Harmony Type': '26 Echo 1/32',
     'Harmony Volume': 100,
     'Transpose': -3,
     'Pitch Bend Range': 7
@@ -182,9 +182,9 @@ F0 43 73 7F 44 06 09 00 01 00 01 7F 7F 7F F7
 def test_reg():
     for hexdata, sets in testdata:
         infile = e.read_syx_file(io.BytesIO(hexdata))
-        ddat = e.decode_section_messages(infile)
+        _, ddat = e.decode_section_messages(infile, verbose=True)
         dobj = e.RegData(ddat)
-        dsets, b = dobj.get_settings(2, 4)
+        dsets, b = dobj.get_settings(4, 2)
         assert len(b) == 0
         for key, value in sets.items():
             assert dsets[key] == value
