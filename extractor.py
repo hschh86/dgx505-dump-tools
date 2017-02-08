@@ -15,20 +15,29 @@ EXPECTED_LENGTH = {SONG_SECTION_BYTE: 76904, REG_SECTION_BYTE: 816}
 EXPECTED_COUNT = {SONG_SECTION_BYTE: 39, REG_SECTION_BYTE: 2}
 
 def errprint(*args, **kwargs):
+    """Print a message to stderr"""
     print(*args, file=sys.stderr, **kwargs)
 
 # Basic exceptions
 class ExtractorError(Exception):
+    """Base class for custom exceptions"""
     pass
 class MessageParsingError(ExtractorError):
+    """Exception to be raised when something unexpected happens while
+    parsing messages"""
     pass
 class MalformedDataError(ExtractorError):
+    """Exception to be raised when something unexpected happens while
+    parsing the data extracted from the messages"""
     pass
 class NotRecordedError(ExtractorError):
+    """Exception to be raised when
+    trying to get something that wasn't recorded"""
     pass
 
 DumpMessageTuple = collections.namedtuple(
     'DumpMessageTuple', 'message header section a_size b_size run payload end')
+
 def parse_dump_message(msg):
     HEADER_SLICE = slice(None, 5)
     TYPE_INDEX = 5
@@ -95,9 +104,10 @@ def dump_message_section(messages, section=None, verbose=False):
         run += dm.a_size
         if verbose:
             count += 1
-            errprint("Message {:>{cl}} of {}, {:>{rl}}/{} data bytes recieved".format(
-                count, expected_count, run, expected_run,
-                cl=count_len, rl=run_len))
+            errprint(
+                "Message {:>{cl}} of {}, {:>{rl}}/{} data bytes recieved".format(
+                    count, expected_count, run, expected_run,
+                    cl=count_len, rl=run_len))
         yield dm
         dm = next(dmessages)
     if verbose:
@@ -165,26 +175,23 @@ def reconstitute_all(inbytes):
 
 
 
-def boolean_bitarray_get(byte, index):
-    """The index-th-lowest bit of the byte, as a boolean."""
-    return bool((byte >> index) & 0x01)
+def boolean_bitarray_get(integer, index):
+    """The index-th-lowest bit of the integer, as a boolean."""
+    return bool((integer >> index) & 0x01)
 
-def boolean_bitarray_tuple(byte, length=8):
-    """Unpack a byte into an 8-tuple of boolean values, LSB first."""
-    return tuple(boolean_bitarray_get(byte, i) for i in range(length))
-
-
+def boolean_bitarray_tuple(integer, length=8):
+    """Unpack an integer into a tuple of boolean values, LSB first.
+    Uses the lowest bits up to length.
+    Raises ValueError if any higher bits are set to 1"""
+    if integer >= (1 << length):
+        raise ValueError("Some bits are too high: {}".format(byte))
+    return tuple(boolean_bitarray_get(integer, i) for i in range(length))
 
 
 class SongData(object):
 
     BLOCK_COUNT = 0x82
     BLOCK_SIZE = 0x200
-    SongInfoTuple = collections.namedtuple(
-        "SongInfoTuple",
-        'name song_active song_duration tracks_active tracks_duration')
-    TRACK_NAMES = ('1', '2', '3', '4', '5', 'A')
-
 
     def __init__(self, data):
 
@@ -218,29 +225,33 @@ class SongData(object):
             raise MalformedDataError("Invalid format")
 
         # song data
-        self.songsfield = boolean_bitarray_tuple(self._data[SONGS_OFFSET])
-
-        trackslice = self._data[TRACKS_SLICE]
-        self.tracksfield = tuple(boolean_bitarray_tuple(x) for x in trackslice)
+        try:
+            songsfield = boolean_bitarray_tuple(self._data[SONGS_OFFSET], 5)
+            tracksfield = [boolean_bitarray_tuple(x, 6)
+                           for x in self._data[TRACKS_SLICE]]
+        except ValueError:
+            raise MalformedDataError("Unexpected high bits in the fields")
 
         songdslice = self._data[SONG_DURATION_SLICE]
-        self.song_durations = struct.unpack('>5I', songdslice)
+        song_durations = struct.unpack('>5I', songdslice)
 
         trackdslice = self._data[TRACK_DURATION_SLICE]
         track_durations_all = struct.unpack('>30I', trackdslice)
-        self.track_durations = tuple(slicebyn(track_durations_all, 6))
 
         self._beginningblocks = self._data[BEGINNING_BLOCKS_SLICE]
         self._nextblocks = self._data[NEXT_BLOCKS_SLICE]
         self._blockdata = self._data[BLOCK_DATA_SLICE]
 
-        self._bblocks = tuple(slicebyn(self._beginningblocks, 6))
-
-
         self._mystery = self._data[MYSTERY_SLICE]
 
-        self._songsmidi = [None] * 5
+        track_durations = slicebyn(track_durations_all, 6)
+        bblocks = slicebyn(self._beginningblocks, 6)
+        numbers = range(1, 5+1)
 
+        self.songs = tuple(
+            UserSong(self, *params) for params in zip(
+                numbers, songsfield, song_durations,
+                tracksfield, track_durations, bblocks))
 
     def get_block_data(self, n):
         if 1 <= n <= self.BLOCK_COUNT:
@@ -255,80 +266,103 @@ class SongData(object):
             raise IndexError("Invalid index: {}".format(n))
         return self._nextblocks[n-1]
 
-    def track_from_block_iter(self, block_number):
-        block = self.get_block_data(block_number)
-        # verify and read the length
-        tag, length = struct.unpack_from('>4sI', block, 0)
+    def block_data_iter(self, start_block, length):
+        num = start_block
+        rem = length
+        while rem > 0:
+            if num == 0xFF:
+                raise MalformedDataError("ran out too early")
+            elif num == 0x00:
+                raise MalformedDataError("referenced empty block")
+            block = self.get_block_data(num)
+            if rem < self.BLOCK_SIZE:
+                block = block[:rem]
+            rem -= len(block)
+            num = self.get_next_block_number(num)
+            yield block
+
+    def get_track_blocks(self, start_block):
+        try:
+            block = self.get_block_data(start_block)
+        except IndexError:
+            raise MalformedDataError("Invalid starting block")
+        tag, dlength = struct.unpack_from('>4sL', block, 0)
         if tag != b'MTrk':
             raise MalformedDataError("Chunk start not found")
-        datalen = length + 8
-        # yield the blocks
-        while datalen > self.BLOCK_SIZE:
-            yield block
-            datalen -= len(block)
-            block_number = self.get_next_block_number(block_number)
-            if block_number == 0xFF:
-                raise MalformedDataError("ran out too early")
-            elif block_number == 0x00:
-                raise MalformedDataError("referenced empty block")
-            block = self.get_block_data(block_number)
-        yield block[:datalen]
-
-    @staticmethod
-    def midi_header(track_count):
-        return struct.pack('>4sI3H', b'MThd', 6, 1, track_count, 96)
-
-    def midi_song_block_iter(self, n):
-        # figure out which blocks
-        songblocks = [x for x in self._bblocks[n] if x != 0xFF]
-        yield self.midi_header(len(songblocks))
-        # we want the time track first
-        for i in range(-1, len(songblocks)-1):
-            yield from self.track_from_block_iter(songblocks[i])
-
-    def get_midi_song(self, song):
-        if not 1 <= song <= 5:
-            raise ValueError("Invalid song number: {}".format(song))
-        n = song-1
-        if not self.songsfield[n]:
-            raise NotRecordedError("Song not recorded")
-        if not self._songsmidi[n]:
-            self._songsmidi[n] = b''.join(self.midi_song_block_iter(n))
-        return self._songsmidi[n]
+        size = dlength + 8
+        blocks = list(self.block_data_iter(start_block, size))
+        return size, blocks
 
     def all_available_songs(self):
-        for i in range(1, 5+1):
+        for i, song in self.songs:
             try:
-                midi = self.get_midi_song(i)
-            except ValueError:
+                midi = song.midi
+            except NotRecordedError:
                 pass
             else:
-                yield i, midi
+                yield song.number, midi
 
-    def song_info(self, song):
-        if not 1 <= song <= 5:
-            raise ValueError("Invalid song number: {}".format(song))
-        n = song-1
-        name = "User Song {}".format(song)
-        song_active = self.songsfield[n]
-        song_duration = self.song_durations[n]
-        tracks_active = self.tracksfield[n]
-        tracks_duration = self.track_durations[n]
-        return self.SongInfoTuple(name, song_active, song_duration,
-                                  tracks_active, tracks_duration)
 
-    def print_song_info(self, song):
-        columns = "{:>10} {!s:>10} {:>10}".format
-        info = self.song_info(song)
-        print(info.name)
-        if info.song_active:
-            print(columns("", "Recorded", "Duration"))
-            print(columns("all", info.song_active, info.song_duration))
-            for track, active, duration in zip(
-                self.TRACK_NAMES, info.tracks_active, info.tracks_duration):
-                print(columns("Track "+track, active, duration))
+UserSongTrack = collections.namedtuple(
+    "UserSongTrack", "track name active duration size blocks")
+class UserSong(object):
+
+    def __init__(self, songdata, number, active, duration,
+                 tracks_active, tracks_duration, start_blocks):
+
+        self.number = number
+        self.active = active
+        self.duration = duration
+
+        self.name = "User Song {}".format(number)
+
+        self._tracks = []
+        # transpose the last track to first so that
+        # index 0 = time/chord track A, index 1 = track 1 etc
+        TRACK_NAMES = ('Track 1', 'Track 2', 'Track 3',
+                       'Track 4', 'Track 5', 'Track A')
+        for i in range(-1, 5):
+            start_block = start_blocks[i]
+            if start_block == 0xFF:
+                size = 0
+                blocks = None
+            else:
+                size, blocks = songdata.get_track_blocks(start_block)
+            track = UserSongTrack(i+1, TRACK_NAMES[i],
+                                  tracks_active[i], tracks_duration[i],
+                                  size, blocks)
+            self._tracks.append(track)
+
+        self._datatracks = [track for track in self._tracks
+                            if track.blocks is not None]
+        if self._datatracks:
+            self.size = 14 + sum(track.size for track in self._datatracks)
         else:
-            print("Song not recorded.")
+            self.size = 0
+
+        self._smf = None
+
+    def print_info(self):
+        columns = "{:>12} {!s:>10} {:>10} {:>10}".format
+        print(columns("", "Recorded", "Duration", "Size"))
+        for item in (self, *self._tracks):
+            print(columns(item.name, item.active, item.duration, item.size))
+
+
+    def _midi_blocks_iter(self):
+        if not self._datatracks:
+            raise NotRecordedError("Song not recorded")
+        header = struct.pack('>4sL3H',
+                             b'MThd', 6, 1, len(self._datatracks), 96)
+        yield header
+        for track in self._datatracks:
+            yield from track.blocks
+
+    @property
+    def midi(self):
+        if self._smf is None:
+            self._smf = b''.join(self._midi_blocks_iter())
+        return self._smf
 
 class RegData(object):
 
@@ -741,18 +775,19 @@ if __name__ == "__main__":
             errprint("Error: file exists: {!r}. Ignoring...".format(
                 args.dumpfile))
 
-    songs = SongData(dump_song_data)
-    for i in range(1, 5+1):
+    usersongs = SongData(dump_song_data)
+    for song in usersongs.songs:
         if not args.quiet:
-            songs.print_song_info(i)
+            song.print_info()
             print()
         if args.midiprefix is not None:
             try:
-                midi = songs.get_midi_song(i)
+                midi = song.midi
             except NotRecordedError:
                 pass
             else:
-                filename = "{}_UserSong{}.mid".format(args.midiprefix, i)
+                filename = "{}_UserSong{}.mid".format(
+                    args.midiprefix, song.number)
                 if args.verbose:
                     errprint("Writing midi file {!r}".format(filename))
                 try:
@@ -760,7 +795,7 @@ if __name__ == "__main__":
                         outfile.write(midi)
                 except FileExistsError:
                     errprint("Error: file exists: {!r}. Ignoring...".format(
-                        args.dumpfile))
+                        filename))
 
     if not (args.quiet or args.songonly):
         regs = RegData(dump_reg_data)
