@@ -304,7 +304,7 @@ Offset: `004`, Length: `2C` &times; 16
 
 The DGX-505 has 8 banks &times; 2 buttons = 16 settings that can be saved.
 Each is represented here with 44 (hex: `2C`) bytes.
-The settings are organised first by button, then by bank, i.e.
+The settings are organised primarily by button, then by bank, i.e.
 * offset `004` = Button 1, Bank 1
 * offset `030` = Button 1, Bank 2
 * ...

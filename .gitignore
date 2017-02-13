@@ -1,4 +1,9 @@
 # https://github.com/github/gitignore
+
+# we don't want to put data into version control
+data/
+test_data/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -1,18 +1,5 @@
 import mido
 
-def read_hex_syx(filename):
-    # workaround, to get avoid a bug? in mido 1.1.18
-    # (bytearray.fromhex doesn't like newlines...)
-    with open(filename, 'r', errors='replace') as infile:
-        hex_lines = infile.readlines()
-
-    # maybe... return mido.parse_all(itertools.chain(bytearray.fromhex(line) for line in data.splitlines())) ??
-    data = bytearray()
-    for line in hex_lines:
-        data.extend(bytearray.fromhex(line.strip()))
-    return [msg for msg in mido.Parser(data) if msg.type == 'sysex']
-
-
 def seven_byte_length(value):
     """Returns the minimum number of bytes required to represent the integer
     if we can use seven bits per byte.
