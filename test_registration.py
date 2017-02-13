@@ -184,7 +184,7 @@ def test_reg():
         infile = e.read_syx_file(io.BytesIO(hexdata))
         _, ddat = e.decode_section_messages(infile, verbose=True)
         dobj = e.RegData(ddat)
-        dsets, b = dobj.get_settings(4, 2)
-        assert len(b) == 0
-        for key, value in sets.items():
-            assert dsets[key] == value
+        dset = dobj.get_settings(4, 2)
+        assert len(dset._unusual) == 0
+        for key, value in dset._dict.items():
+            assert dset[key] == value

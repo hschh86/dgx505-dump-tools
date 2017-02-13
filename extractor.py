@@ -39,6 +39,20 @@ DumpMessageTuple = collections.namedtuple(
     'DumpMessageTuple', 'message header section a_size b_size run payload end')
 
 def parse_dump_message(msg):
+    """Parse a bulk dump sysex message into a DumpMessageTuple of properties
+    MessageParsingError is raised if the message is not of the correct format
+    ValueError can also be raised if something goes wrong...
+
+    DumpMessageTuple attributes:
+    message: the original mido.Message object
+    header: The first 5 bytes, starting with 0x43 for YAMAHA
+    section: Either 0x0A (Song section) or 0x09 (Registration section)
+    a_size: full data size (this is the one that gets used)
+    b_size: data size (sans padding?)
+    run: running total, or None if final message
+    payload: the decoded data, or None if final message
+    end: Boolean. True if final message, else False.
+    """
     HEADER_SLICE = slice(None, 5)
     TYPE_INDEX = 5
     A_SIZE_SLICE = slice(6, 8)
@@ -83,6 +97,17 @@ def parse_dump_message(msg):
                             a_size, b_size, run, payload, end)
 
 def dump_message_section(messages, section=None, verbose=False):
+    """Iterator over the messages in a bulk dump section.
+    Yields DumpMessageTuples.
+    Verifies that all the sizes and running total match and everything.
+    MessageParsingError raised if the messages don't match.
+
+    messages = an iterable of mido messages
+    section = the section byte
+              (if not specified, the section of the first message read is used)
+    verbose = print status messages to stderr.
+    """
+
     run = 0
     dmessages = (parse_dump_message(msg) for msg in messages)
     dm = next(dmessages)
@@ -117,6 +142,11 @@ def dump_message_section(messages, section=None, verbose=False):
     yield dm
 
 def decode_section_messages(messages, section=None, verbose=False):
+    """Collect all the dump messages in a section and concatenate the payloads.
+    returns a tuple: the list of DumpMessageTuples, the payload as bytes
+
+    section and verbose parameters passed thru to dump_message_section
+    """
     # collect messages
     dump_messages = list(dump_message_section(messages, section, verbose))
     full_payload = b''.join(dm.payload for dm in dump_messages if dm.payload)
@@ -189,11 +219,18 @@ def boolean_bitarray_tuple(integer, length=8):
 
 
 class SongData(object):
+    """
+    Container for all the useful data in a song section of a bulk dump
+    """
 
     BLOCK_COUNT = 0x82
     BLOCK_SIZE = 0x200
 
     def __init__(self, data):
+        """
+        data = the concatenated payload data.
+        songs are available through the songs attribute.
+        """
 
         SONGS_OFFSET = 0x00
         MYSTERY_SLICE = slice(0x01, 0x15D)
@@ -254,6 +291,7 @@ class SongData(object):
                 tracksfield, track_durations, bblocks))
 
     def get_block_data(self, n):
+        """Returns the specified block data, as a memoryview"""
         if 1 <= n <= self.BLOCK_COUNT:
             end = self.BLOCK_SIZE * n
             start = end - self.BLOCK_SIZE
@@ -262,11 +300,13 @@ class SongData(object):
             raise IndexError("Invalid index: {}".format(n))
 
     def get_next_block_number(self, n):
+        """Returns the number of the block following block n"""
         if n < 1:
             raise IndexError("Invalid index: {}".format(n))
         return self._nextblocks[n-1]
 
-    def block_data_iter(self, start_block, length):
+    def _block_data_iter(self, start_block, length):
+        """Yields data blocks up to length from start_block"""
         num = start_block
         rem = length
         while rem > 0:
@@ -282,6 +322,13 @@ class SongData(object):
             yield block
 
     def get_track_blocks(self, start_block):
+        """Gets a track chunk's size and blocks from its starting block number.
+        MalformedDataError raised if chunk is invalid somehow
+        returns (size, blocks), where:
+        size is the total number of bytes in the chunk (including header)
+        blocks is a list of the blocks (as memoryviews, with the last one
+        truncated appropriately for the chunk size)
+        """
         try:
             block = self.get_block_data(start_block)
         except IndexError:
@@ -290,26 +337,21 @@ class SongData(object):
         if tag != b'MTrk':
             raise MalformedDataError("Chunk start not found")
         size = dlength + 8
-        blocks = list(self.block_data_iter(start_block, size))
+        blocks = list(self._block_data_iter(start_block, size))
         return size, blocks
 
-    def all_available_songs(self):
-        for i, song in self.songs:
-            try:
-                midi = song.midi
-            except NotRecordedError:
-                pass
-            else:
-                yield song.number, midi
 
 
-UserSongTrack = collections.namedtuple(
-    "UserSongTrack", "track name active duration size blocks")
 class UserSong(object):
+    """
+    Represents one UserSong and associated data and metadata
+    """
+
+    UserSongTrack = collections.namedtuple(
+        "UserSongTrack", "track name active duration size blocks")
 
     def __init__(self, songdata, number, active, duration,
                  tracks_active, tracks_duration, start_blocks):
-
         self.number = number
         self.active = active
         self.duration = duration
@@ -328,9 +370,9 @@ class UserSong(object):
                 blocks = None
             else:
                 size, blocks = songdata.get_track_blocks(start_block)
-            track = UserSongTrack(i+1, TRACK_NAMES[i],
-                                  tracks_active[i], tracks_duration[i],
-                                  size, blocks)
+            track = self.UserSongTrack(i+1, TRACK_NAMES[i],
+                                       tracks_active[i], tracks_duration[i],
+                                       size, blocks)
             self._tracks.append(track)
 
         self._datatracks = [track for track in self._tracks
@@ -343,6 +385,12 @@ class UserSong(object):
         self._smf = None
 
     def print_info(self):
+        """Prints the recorded (active) status, duration (in measures),
+        and size (in bytes) for the song overall and each track within, in a
+        table.
+        Note that Track A can still have data even if not recorded,
+        as the track is also used as the time track for the whole song.
+        """
         columns = "{:>12} {!s:>10} {:>10} {:>10}".format
         print(columns("", "Recorded", "Duration", "Size"))
         for item in (self, *self._tracks):
@@ -360,13 +408,67 @@ class UserSong(object):
 
     @property
     def midi(self):
+        """The MIDI file, as bytes."""
         if self._smf is None:
             self._smf = b''.join(self._midi_blocks_iter())
         return self._smf
 
 class RegData(object):
+    """
+    Container for the useful data in a reg section
+    """
 
-    SETTING_SIZE = 0x2C
+    def __init__(self, data):
+        START_SLICE = slice(0x000, 0x004)
+        SETTINGS_SLICE = slice(0x004, 0x2C4)
+        END_SLICE = slice(0x2C4, 0x2C8)
+        PAD_SLICE = slice(0x2C8, None)
+
+        EXPECTED_SIZE = 0x2CA
+        SETTING_SIZE = 0x2C
+
+        BOOKEND = b'PSR\x03'
+        PADBYTES = b'\x00\x00'
+
+        self._data = memoryview(data)
+        # message format checks
+        if len(data) != EXPECTED_SIZE:
+            raise MalformedDataError("Data wrong length!")
+        if not ((self._data[START_SLICE] == self._data[END_SLICE] == BOOKEND)
+                and (self._data[PAD_SLICE] == PADBYTES)):
+            raise MalformedDataError("Invalid format")
+
+        # data is stored by button, then bank
+        # (i.e. all the settings for a button are together)
+        button_list = []
+        button_sections = slicebyn(self._data[SETTINGS_SLICE], SETTING_SIZE*8)
+        for button_num, button_section in zip(range(1, 2+1), button_sections):
+            bank_list = []
+            set_sections = slicebyn(button_section, SETTING_SIZE)
+            for bank_num, set_section in zip(range(1, 8+1), set_sections):
+                reg = RegSetting(bank_num, button_num, set_section)
+                bank_list.append(reg)
+            button_list.append(bank_list)
+        # it's more convenient to store and display as bank, then button
+        self.settings = tuple(zip(*button_list))
+
+    def get_settings(self, bank, button):
+        """Get the RegSetting object corresponding to the bank and button"""
+        if not 1 <= button <= 2:
+            raise ValueError("Invalid button: {}".format(button))
+        if not 1 <= bank <= 8:
+            raise ValueError("Invalid bank: {}".format(button))
+        return self.settings[bank-1][button-1]
+
+    def __iter__(self):
+        """Iterate through settings, grouped by bank then button"""
+        for bank in self.settings:
+            yield from bank
+
+
+
+# Even More Object Orientation
+class RegSetting(collections.abc.Mapping):
 
     REVERB_MAP = {
          1: "01 Hall1",
@@ -447,7 +549,6 @@ class RegData(object):
         0x01: "ON"
     }
 
-
     REG_SETTING_FORMATS =  collections.OrderedDict([
         # front panel
         ("Style number", "03d"),
@@ -494,78 +595,73 @@ class RegData(object):
         ("Harmony Type", "s"),
         ("Harmony Volume", "03d")
     ])
+
     REG_SETTING_NAMES = REG_SETTING_FORMATS.keys()
-
-
 
     SFORMAT = '> B BBbbBB Hbbbbb bHbbbbb bHbbbbb bBB bBb B BB 2s B 2s'
 
+    SettingValue = collections.namedtuple("SettingValue", "value raw unusual")
 
-    def __init__(self, data):
-        START_SLICE = slice(0x000, 0x004)
-        SETTINGS_SLICE = slice(0x004, 0x2C4)
-        END_SLICE = slice(0x2C4, 0x2C8)
-        PAD_SLICE = slice(0x2C8, None)
+    def __init__(self, bank, button, data):
 
-        EXPECTED_SIZE = 0x2CA
+        self.bank = bank
+        self.button = button
 
-        BOOKEND = b'PSR\x03'
-        PADBYTES = b'\x00\x00'
+        self._dict = collections.OrderedDict(
+            (x, None) for x in self.REG_SETTING_NAMES)
+        self._unusual = []
 
-        self._data = memoryview(data)
-        # message format checks
-        if len(data) != EXPECTED_SIZE:
-            raise MalformedDataError("Data wrong length!")
-        if not ((self._data[START_SLICE] == self._data[END_SLICE] == BOOKEND)
-                and (self._data[PAD_SLICE] == PADBYTES)):
-            raise MalformedDataError("Invalid format")
+        self._parse_data(data)
 
-        setting_section = self._data[SETTINGS_SLICE]
-        self._setting_data = tuple(slicebyn(setting_section, self.SETTING_SIZE))
+    def _note_unusual(self, message):
+        # Do something with the message, like put it in a list
+        self._unusual.append(message)
 
-    def get_settings(self, bank, button):
-        if not 1 <= button <= 2:
-            raise ValueError("Invalid button: {}".format(button))
-        if not 1 <= bank <= 8:
-            raise ValueError("Invalid bank: {}".format(button))
-        n = (button-1)*8 + (bank-1)
-        return self.parse_setting_data(self._setting_data[n])
+    def _range_check_assign(self, prop, raw,
+                            lo=0, hi=127, offset=0, noneval=None):
+        """Assign a value to a property, checking if value falls within range
+        If value doesn't, _note_unusual will be called, and the 'unusual'
+        field will have a message (instead of None).
+        prop = property name
+        raw = raw value (stored in raw field of the SettingValue tuple)
+        lo = lower bound (inclusive)
+        hi = upper bound (inclusive)
+        offset = value to add to raw before range check
+        noneval = if raw == noneval, value becomes None. (check is skipped)
 
-    def print_settings(self, bank, button):
-        setting_values, unusual_list = self.get_settings(bank, button)
-        print("Bank {}, Button {}:".format(bank, button))
-        for key, value in setting_values.items():
-            try:
-                rep = format(value, self.REG_SETTING_FORMATS[key])
-            except (TypeError, ValueError):
-                rep = str(value)
-            print(" {:>18}: {:>3}".format(key,rep))
-        if unusual_list:
-            print(" {} unusual values:".format(len(unusual_list)))
-            for message in unusual_list:
-                print(" - {}".format(message))
+        self._dict[prop] is assigned a SettingValue(value, raw, unusual) tuple
+        """
+        unusual = None
+        if raw == noneval:
+            value = None
+        else:
+            value = raw + offset
+            if not (lo <= value <= hi):
+                unusual = "{} out of range: {}".format(prop, value)
+                self._note_unusual(unusual)
+        self._dict[prop] = self.SettingValue(value, raw, unusual)
 
-    @classmethod
-    def parse_setting_data(cls, data):
-        parsed_values = collections.OrderedDict(
-            (x, None) for x in cls.REG_SETTING_NAMES)
-        unusual_list = []
+    def _mapping_check_assign(self, prop, raw, mapping):
+        """Assign a value to a property, where value is mapping[raw]
+        If mapping doesn't have key, _note_unusual will be called,
+        and the 'unusual' field will have a message (instead of None).
 
-        def note_unusual(message):
-            unusual_list.append(message)
+        self._dict[prop] is assigned a SettingValue(value, raw, unusual) tuple
+        """
+        unusual = None
+        try:
+            value = mapping[raw]
+        except KeyError:
+            value = raw
+            unusual = "{} unusual value: {}".format(val)
+            self._note_unusual(unusual)
+        self._dict[prop] = self.SettingValue(value, raw, unusual)
 
-        def range_check_assign(prop, val, lo=0, hi=127):
-            if not (lo <= val <= hi):
-                note_unusual("{} out of range: {}".format(prop, val))
-            parsed_values[prop] = val
-
-        def mapping_check_assign(prop, val, mapping):
-            try:
-                parsed_values[prop] = mapping[val]
-            except KeyError:
-                note_unusual("{} unusual value: {}".format(val))
-                parsed_values[prop] = val
-
+    def _parse_data(self, data):
+        """Parse the data into self._dict and self._unusual.
+        Does checks, but messages are put into self._unusual instead of
+        raised as exceptions.
+        """
         (firstbyte,
          style_num, style_acmp, spoint1, spoint2, style_ab, style_vol,
          main_num, main_oct, main_vol, main_pan, main_rvb, main_chs,
@@ -579,88 +675,111 @@ class RegData(object):
          tspose, tempo,
          pad1,
          psust,
-         pad2) = struct.unpack(cls.SFORMAT, data)
+         pad2) = struct.unpack(self.SFORMAT, data)
 
         if firstbyte != 0x01:
-            note_unusual('firstbyte is {:02X}'.format(firstbyte))
+            self._note_unusual('firstbyte is {:02X}'.format(firstbyte))
         if ffbyte != 0xFF:
-            note_unusual('ffbyte is {:02X}'.format(ffbyte))
+            self._note_unusual('ffbyte is {:02X}'.format(ffbyte))
         if not (pad1 == pad2 == b'\x00\x00'):
-            note_unusual('padding is {!r} {!r}'.format(pad1, pad2))
+            self._note_unusual('padding is {!r} {!r}'.format(pad1, pad2))
 
         # Style front panel buttons
-        if style_num == 0xFF:
-            parsed_values['Style number'] = None
-        else:
-            range_check_assign('Style number', style_num+1, 1, 136)
+        self._range_check_assign('Style number', style_num, 1, 136,
+                                 offset=+1, noneval=0xFF)
 
-        mapping_check_assign('Accompaniment', style_acmp, cls.ACMP_MAP)
-        mapping_check_assign('Main A/B', style_ab, cls.AB_MAP)
+        self._mapping_check_assign('Accompaniment', style_acmp, self.ACMP_MAP)
+        self._mapping_check_assign('Main A/B', style_ab, self.AB_MAP)
 
-        if tempo == 0xFF:
-            parsed_values['Tempo'] = None
-        else:
-            range_check_assign('Tempo', tempo+32, 32, 280)
+        self._range_check_assign('Tempo', tempo, 32, 280,
+                                 offset=+32, noneval=0xFF)
 
         # Voice numbers
-        range_check_assign('Main Voice number', main_num+1, 1, 494)
-        range_check_assign('Split Voice number', split_num+1, 1, 494)
-        range_check_assign('Dual Voice number', dual_num+1, 1, 494)
+        self._range_check_assign('Main Voice number', main_num, 1, 494,
+                                 offset=+1)
+        self._range_check_assign('Split Voice number', split_num, 1, 494,
+                                 offset=+1)
+        self._range_check_assign('Dual Voice number', dual_num, 1, 494,
+                                 offset=+1)
 
         # Voice front panel buttons
-        mapping_check_assign('Harmony', hmny_on, cls.BOOL_MAP)
-        mapping_check_assign('Dual', dual_on, cls.BOOL_MAP)
-        mapping_check_assign('Split', split_on, cls.BOOL_MAP)
+        self._mapping_check_assign('Harmony', hmny_on, self.BOOL_MAP)
+        self._mapping_check_assign('Dual', dual_on, self.BOOL_MAP)
+        self._mapping_check_assign('Split', split_on, self.BOOL_MAP)
 
         # Function Menu
-        if style_vol == 0xFF:
-            parsed_values['Style Volume'] = None
-        else:
-            range_check_assign('Style Volume', style_vol)
+        self._range_check_assign('Style Volume', style_vol, noneval=0xFF)
 
-        range_check_assign('Transpose', tspose-12, -12, +12)
-        range_check_assign('Pitch Bend Range', pbend, 1, 12)
+        self._range_check_assign('Transpose', tspose, -12, +12, offset=-12)
+        self._range_check_assign('Pitch Bend Range', pbend, 1, 12)
 
         if spoint1 != spoint2:
-            note_unusual(
+            self._note_unusual(
                 "Split points don't match: 0x{:02X}, 0x{:02X}".format(
                     spoint1, spoint2))
-        range_check_assign('Split Point', spoint1)
+        self._range_check_assign('Split Point', spoint1)
 
         # Main Voice
-        range_check_assign('M. Volume', main_vol)
-        range_check_assign('M. Octave', main_oct, -2, +2)
-        range_check_assign('M. Pan', main_pan)
-        range_check_assign('M. Reverb Level', main_rvb)
-        range_check_assign('M. Chorus Level', main_chs)
+        self._range_check_assign('M. Volume', main_vol)
+        self._range_check_assign('M. Octave', main_oct, -2, +2)
+        self._range_check_assign('M. Pan', main_pan)
+        self._range_check_assign('M. Reverb Level', main_rvb)
+        self._range_check_assign('M. Chorus Level', main_chs)
 
         # Dual Voice
-        range_check_assign('D. Volume', dual_vol)
-        range_check_assign('D. Octave', dual_oct, -2, +2)
-        range_check_assign('D. Pan', dual_pan)
-        range_check_assign('D. Reverb Level', dual_rvb)
-        range_check_assign('D. Chorus Level', dual_chs)
+        self._range_check_assign('D. Volume', dual_vol)
+        self._range_check_assign('D. Octave', dual_oct, -2, +2)
+        self._range_check_assign('D. Pan', dual_pan)
+        self._range_check_assign('D. Reverb Level', dual_rvb)
+        self._range_check_assign('D. Chorus Level', dual_chs)
 
         # Split Voice
-        range_check_assign('S. Volume', split_vol)
-        range_check_assign('S. Octave', split_oct, -2, +2)
-        range_check_assign('S. Pan', split_pan)
-        range_check_assign('S. Reverb Level', split_rvb)
-        range_check_assign('S. Chorus Level', split_chs)
+        self._range_check_assign('S. Volume', split_vol)
+        self._range_check_assign('S. Octave', split_oct, -2, +2)
+        self._range_check_assign('S. Pan', split_pan)
+        self._range_check_assign('S. Reverb Level', split_rvb)
+        self._range_check_assign('S. Chorus Level', split_chs)
 
         # Effects
-        mapping_check_assign('Reverb Type', rvb_type, cls.REVERB_MAP)
-        mapping_check_assign('Chorus Type', chs_type, cls.CHORUS_MAP)
-        mapping_check_assign('Sustain', psust, cls.SUSTAIN_MAP)
+        self._mapping_check_assign('Reverb Type', rvb_type, self.REVERB_MAP)
+        self._mapping_check_assign('Chorus Type', chs_type, self.CHORUS_MAP)
+        self._mapping_check_assign('Sustain', psust, self.SUSTAIN_MAP)
 
         # Harmony
-        mapping_check_assign('Harmony Type', hmny_type, cls.HARMONY_MAP)
-        range_check_assign('Harmony Volume', hmny_vol)
+        self._mapping_check_assign('Harmony Type', hmny_type, self.HARMONY_MAP)
+        self._range_check_assign('Harmony Volume', hmny_vol)
 
-        return parsed_values, unusual_list
+    def print_settings(self):
+        print("Bank {}, Button {}:".format(self.bank, self.button))
+        for key, (value, raw, unusual) in self._dict.items():
+            try:
+                rep = format(value, self.REG_SETTING_FORMATS[key])
+            except (TypeError, ValueError):
+                rep = str(value)
+            print(" {:>18}: {:>3}".format(key, rep))
+        if self._unusual:
+            print(" {} unusual values:".format(len(self._unusual)))
+            for message in self._unusual:
+                print(" - {}".format(message))
+
+    # Methods required for Mapping abc: use underlying self._dict
+    def __getitem__(self, key):
+        return self._dict[key]
+
+    def __iter__(self):
+        return iter(self._dict)
+
+    def __len__(self):
+        return len(self._dict)
+
+
 
 def read_syx_file(infile):
-    # like mido.read_syx_file, but takes a binary mode file object instead.
+    """Read in a binary or hex syx file.
+    Takes a binary mode file object.
+    (like mido.read_syx_file, but uses file objects)
+    Returns a list of mido Messages
+    """
     data = infile.read()
     parser = mido.Parser()
     if data[0] == 0xF0:
@@ -671,7 +790,10 @@ def read_syx_file(infile):
     return list(parser)
 
 def read_syx_file_lazy(infile):
-    # lazy version, for when you don't have EOF
+    """Lazily read Messages from a binary or hex syx file.
+    (useful for when you don't have EOF)
+    Yields mido Messages.
+    """
     first = infile.read(1)
     parser = mido.Parser()
     if first == b'\xF0':
@@ -686,6 +808,10 @@ def read_syx_file_lazy(infile):
 
 
 def write_syx_file(outfile, messages):
+    """Write a binary syx file.
+    Takes a binary mode file object
+    (like mido.write_syx_file, but uses file objects.)
+    """
     for message in messages:
         if message.type == 'sysex':
             outfile.write(message.bin())
@@ -799,7 +925,6 @@ if __name__ == "__main__":
 
     if not (args.quiet or args.songonly):
         regs = RegData(dump_reg_data)
-        for bank in range(1, 8+1):
-            for button in range(1, 2+1):
-                regs.print_settings(bank, button)
-                print()
+        for setting in regs:
+            setting.print_settings()
+            print()
