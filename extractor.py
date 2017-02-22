@@ -5,12 +5,6 @@ import struct
 import argparse
 
 YAMAHA = 0x43
-SONG_SECTION_BYTE = 0x0A
-REG_SECTION_BYTE = 0x09
-SECTION_NAMES = {SONG_SECTION_BYTE: "Song data",
-                 REG_SECTION_BYTE: "Registration data"}
-EXPECTED_LENGTH = {SONG_SECTION_BYTE: 76904, REG_SECTION_BYTE: 816}
-EXPECTED_COUNT = {SONG_SECTION_BYTE: 39, REG_SECTION_BYTE: 2}
 
 def errprint(*args, **kwargs):
     """Print a message to stderr"""
@@ -22,14 +16,19 @@ class ExtractorError(Exception):
     pass
 
 
-class MessageParsingError(ExtractorError):
-    """Exceptionraised when something unexpected happens while
+class MessageError(ExtractorError):
+    pass
+
+
+class MessageParsingError(MessageError):
+    """Exception raised when something unexpected happens while
     parsing messages"""
     def __init__(self, description, msg=None):
+        self.description = description
         self.msg = msg
 
 
-class MessageSequenceError(ExtractorError):
+class MessageSequenceError(MessageError):
     """Exception raised on errors while collecting a sequence of messages"""
     pass
 
@@ -46,10 +45,8 @@ class NotRecordedError(ExtractorError):
     pass
 
 
-
 DumpMessageTuple = collections.namedtuple(
     'DumpMessageTuple', 'message header section a_size b_size run payload end')
-
 def parse_dump_message(msg):
     """Parse a bulk dump sysex message into a DumpMessageTuple of properties
     MessageParsingError is raised if the message is not of the correct format
@@ -83,8 +80,6 @@ def parse_dump_message(msg):
         raise MessageParsingError("Not a Yamaha message", msg)
 
     section = msg.data[TYPE_INDEX]
-    if section not in (SONG_SECTION_BYTE, REG_SECTION_BYTE):
-        raise MessageParsingError("Unknown data section", msg)
 
     a_size = unpack_seven(msg.data[A_SIZE_SLICE])
     b_size = unpack_seven(msg.data[B_SIZE_SLICE])
@@ -107,69 +102,6 @@ def parse_dump_message(msg):
 
     return DumpMessageTuple(msg, header, section,
                             a_size, b_size, run, payload, end)
-
-def dump_message_section(messages, section=None, verbose=False):
-    """Iterator over the messages in a bulk dump section.
-    Yields DumpMessageTuples.
-    Verifies that all the sizes and running total match and everything.
-    MessageParsingError raised if the messages don't match.
-
-    messages = an iterable of mido messages
-    section = the section byte
-              (if not specified, the section of the first message read is used)
-    verbose = print status messages to stderr.
-    """
-
-    run = 0
-    dmessages = (parse_dump_message(msg) for msg in messages)
-    try:
-        dm = next(dmessages)
-    except StopIteration:
-        raise MessageSequenceError("Section empty")
-    if section is None:
-        section = dm.section
-    if verbose:
-        count = 0
-        section_name = SECTION_NAMES.get(section, "{:02X}".format(section))
-        expected_count = EXPECTED_COUNT.get(section, "?")
-        expected_run = EXPECTED_LENGTH.get(section, "?")
-        count_len = len(str(expected_count))
-        run_len = len(str(expected_run))
-        errprint("Section: {}".format(section_name))
-    while not dm.end:
-        if dm.section != section:
-            raise MessageSequenceError("Type mismatch")
-        if dm.run != run:
-            raise MessageSequenceError("Running count mismatch")
-        run += dm.a_size
-        if verbose:
-            count += 1
-            errprint(
-                "Message {:>{cl}} of {}, {:>{rl}}/{} data bytes recieved".format(
-                    count, expected_count, run, expected_run,
-                    cl=count_len, rl=run_len))
-        yield dm
-        try:
-            dm = next(dmessages)
-        except StopIteration:
-            raise MessageSequenceError("Section incomplete")
-    if verbose:
-        count += 1
-        errprint("Message {:>{cl}} of {}, end of section".format(
-            count, expected_count, cl=count_len, rl=run_len))
-    yield dm
-
-def decode_section_messages(messages, section=None, verbose=False):
-    """Collect all the dump messages in a section and concatenate the payloads.
-    returns a tuple: the list of DumpMessageTuples, the payload as bytes
-
-    section and verbose parameters passed thru to dump_message_section
-    """
-    # collect messages
-    dump_messages = list(dump_message_section(messages, section, verbose))
-    full_payload = b''.join(dm.payload for dm in dump_messages if dm.payload)
-    return dump_messages, full_payload
-
 
 # Fun Binary Tools
 def assert_low(byte):
@@ -221,8 +153,6 @@ def reconstitute_all(inbytes):
     # would a memoryview object instead of a slice would be better here?
     return b''.join(reconstitute(x) for x in slicebyn(inbytes, 8))
 
-
-
 def boolean_bitarray_get(integer, index):
     """The index-th-lowest bit of the integer, as a boolean."""
     return bool((integer >> index) & 0x01)
@@ -235,20 +165,105 @@ def boolean_bitarray_tuple(integer, length=8):
         raise ValueError("Some bits are too high: {}".format(byte))
     return tuple(boolean_bitarray_get(integer, i) for i in range(length))
 
+def not_none_get(value, not_none):
+    """Return value, or not_none if value is None"""
+    if value is None:
+        return not_none
+    else:
+        return value
 
-class SongData(object):
+class DataSection(object):
+    SECTION_BYTE = None
+    SECTION_NAME = None
+    EXPECTED_COUNT = None
+    EXPECTED_RUN = None
+
+
+    def __init__(self, message_seq, verbose=False):
+        """
+        Verifies that all the sizes and running total match and everything.
+        MessageParsingError raised if the messages don't match.
+        DumpMessageTuples stored in self.dm_list,
+        Concatenated payload memoryview in self.data
+
+        message_seq = an iterable of mido messages
+        verbose = print status messages to stderr.
+        """
+        self.dm_list = []
+
+        run = 0
+        dmessages = (parse_dump_message(msg) for msg in message_seq)
+
+        try:
+            dm = next(dmessages)
+        except StopIteration:
+            raise MessageSequenceError("Section empty")
+
+        if self.SECTION_BYTE is None:
+            self.SECTION_BYTE = dm.section
+        if self.SECTION_NAME is None:
+            self.SECTION_NAME = "{:02X}".format(self.SECTION_BYTE)
+
+        if verbose:
+            count = 0
+            expected_count = not_none_get(self.EXPECTED_COUNT, "?")
+            expected_run = not_none_get(self.EXPECTED_RUN, "?")
+            count_len = len(str(expected_count))
+            run_len = len(str(expected_run))
+            errprint("Section: {}".format(self.SECTION_NAME))
+
+        while not dm.end:
+            if dm.section != self.SECTION_BYTE:
+                raise MessageSequenceError("Type mismatch")
+            if dm.run != run:
+                raise MessageSequenceError("Running count mismatch")
+            run += dm.a_size
+            if verbose:
+                count += 1
+                errprint(
+                    "Message {:>{cl}} of {}, {:>{rl}}/{} data bytes recieved".format(
+                        count, expected_count, run, expected_run,
+                        cl=count_len, rl=run_len))
+            self.dm_list.append(dm)
+
+            try:
+                dm = next(dmessages)
+            except StopIteration:
+                raise MessageSequenceError("Section incomplete")
+
+        if verbose:
+            count += 1
+            errprint("Message {:>{cl}} of {}, end of section".format(
+                count, expected_count, cl=count_len, rl=run_len))
+
+        self.dm_list.append(dm)
+        databytes = b''.join(dm.payload for dm in self.dm_list if dm.payload)
+
+        self.data = memoryview(databytes)
+
+    def iter_messages(self):
+        for dm in self.dm_list:
+            yield dm.message
+
+
+class SongData(DataSection):
     """
     Container for all the useful data in a song section of a bulk dump
     """
+    SECTION_BYTE = 0x0A
+    SECTION_NAME = "Song data"
+    EXPECTED_COUNT = 39
+    EXPECTED_RUN = 76904
 
     BLOCK_COUNT = 0x82
     BLOCK_SIZE = 0x200
 
-    def __init__(self, data):
+    def __init__(self, *args, **kwargs):
         """
         data = the concatenated payload data.
         songs are available through the songs attribute.
         """
+        super().__init__(*args, **kwargs)
 
         SONGS_OFFSET = 0x00
         MYSTERY_SLICE = slice(0x01, 0x15D)
@@ -267,37 +282,35 @@ class SongData(object):
         PRESETSTYLE = b'PresetStyle\0'*5
         MARKER = b'PK0001'
 
-        self._data = memoryview(data)
-
         # message format checks
-        if len(data) != EXPECTED_SIZE:
+        if len(self.data) != EXPECTED_SIZE:
             raise MalformedDataError("Data wrong length!")
-        presetstyle = self._data[PRESETSTYLE_SLICE]
-        startmarker = self._data[START_MARKER_SLICE]
-        endmarker = self._data[END_MARKER_SLICE]
+        presetstyle = self.data[PRESETSTYLE_SLICE]
+        startmarker = self.data[START_MARKER_SLICE]
+        endmarker = self.data[END_MARKER_SLICE]
         if not ((startmarker == endmarker == MARKER) and
                 (presetstyle == PRESETSTYLE)):
             raise MalformedDataError("Invalid format")
 
         # song data
         try:
-            songsfield = boolean_bitarray_tuple(self._data[SONGS_OFFSET], 5)
+            songsfield = boolean_bitarray_tuple(self.data[SONGS_OFFSET], 5)
             tracksfield = [boolean_bitarray_tuple(x, 6)
-                           for x in self._data[TRACKS_SLICE]]
+                           for x in self.data[TRACKS_SLICE]]
         except ValueError:
             raise MalformedDataError("Unexpected high bits in the fields")
 
-        songdslice = self._data[SONG_DURATION_SLICE]
+        songdslice = self.data[SONG_DURATION_SLICE]
         song_durations = struct.unpack('>5I', songdslice)
 
-        trackdslice = self._data[TRACK_DURATION_SLICE]
+        trackdslice = self.data[TRACK_DURATION_SLICE]
         track_durations_all = struct.unpack('>30I', trackdslice)
 
-        self._beginningblocks = self._data[BEGINNING_BLOCKS_SLICE]
-        self._nextblocks = self._data[NEXT_BLOCKS_SLICE]
-        self._blockdata = self._data[BLOCK_DATA_SLICE]
+        self._beginningblocks = self.data[BEGINNING_BLOCKS_SLICE]
+        self._nextblocks = self.data[NEXT_BLOCKS_SLICE]
+        self._blockdata = self.data[BLOCK_DATA_SLICE]
 
-        self._mystery = self._data[MYSTERY_SLICE]
+        self._mystery = self.data[MYSTERY_SLICE]
 
         track_durations = slicebyn(track_durations_all, 6)
         bblocks = slicebyn(self._beginningblocks, 6)
@@ -358,6 +371,9 @@ class SongData(object):
         blocks = list(self._block_data_iter(start_block, size))
         return size, blocks
 
+    # cereal!
+    def _cereal(self):
+        return [song._cereal() for song in self.songs]
 
 
 class UserSong(object):
@@ -414,7 +430,6 @@ class UserSong(object):
         for item in (self, *self._tracks):
             print(columns(item.name, item.active, item.duration, item.size))
 
-
     def _midi_blocks_iter(self):
         if not self._datatracks:
             raise NotRecordedError("Song not recorded")
@@ -431,12 +446,35 @@ class UserSong(object):
             self._smf = b''.join(self._midi_blocks_iter())
         return self._smf
 
-class RegData(object):
+    def _cereal(self):
+        return collections.OrderedDict([
+            ('number', self.number),
+            ('name', self.name),
+            ('active', self.active),
+            ('duration', self.duration),
+            ('size', self.size),
+            ('tracks', [collections.OrderedDict([
+                ('track', track.track),
+                ('name', track.name),
+                ('active', track.active),
+                ('duration', track.duration),
+                ('size', track.size)
+            ]) for track in self._tracks])
+        ])
+
+
+class RegData(DataSection):
     """
     Container for the useful data in a reg section
     """
+    SECTION_BYTE = 0x09
+    SECTION_NAME = "Registration data"
+    EXPECTED_COUNT = 2
+    EXPECTED_RUN = 816
 
-    def __init__(self, data):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
         START_SLICE = slice(0x000, 0x004)
         SETTINGS_SLICE = slice(0x004, 0x2C4)
         END_SLICE = slice(0x2C4, 0x2C8)
@@ -448,18 +486,17 @@ class RegData(object):
         BOOKEND = b'PSR\x03'
         PADBYTES = b'\x00\x00'
 
-        self._data = memoryview(data)
         # message format checks
-        if len(data) != EXPECTED_SIZE:
+        if len(self.data) != EXPECTED_SIZE:
             raise MalformedDataError("Data wrong length!")
-        if not ((self._data[START_SLICE] == self._data[END_SLICE] == BOOKEND)
-                and (self._data[PAD_SLICE] == PADBYTES)):
+        if not ((self.data[START_SLICE] == self.data[END_SLICE] == BOOKEND)
+                and (self.data[PAD_SLICE] == PADBYTES)):
             raise MalformedDataError("Invalid format")
 
         # data is stored by button, then bank
         # (i.e. all the settings for a button are together)
         button_list = []
-        button_sections = slicebyn(self._data[SETTINGS_SLICE], SETTING_SIZE*8)
+        button_sections = slicebyn(self.data[SETTINGS_SLICE], SETTING_SIZE*8)
         for button_num, button_section in zip(range(1, 2+1), button_sections):
             bank_list = []
             set_sections = slicebyn(button_section, SETTING_SIZE)
@@ -483,9 +520,10 @@ class RegData(object):
         for bank in self.settings:
             yield from bank
 
+    def _cereal(self):
+        return [setting._cereal() for setting in self]
 
 
-# Even More Object Orientation
 class RegSetting(collections.abc.Mapping):
 
     REVERB_MAP = {
@@ -790,6 +828,43 @@ class RegSetting(collections.abc.Mapping):
     def __len__(self):
         return len(self._dict)
 
+    # cereal
+    def _cereal(self):
+        return collections.OrderedDict(
+            (key, value.value) for key, value in self._dict.items())
+
+
+class DgxDump(object):
+    # Object-Orientation?
+    # More Abstractions, More Often!
+
+    def __init__(self, messages, verbose=False, songonly=False):
+        self.songonly = songonly
+
+        stream = filter_yamaha_sysex(messages)
+
+        self.song_data = SongData(stream, verbose)
+        self._sections = [self.song_data]
+
+        if songonly:
+            self.reg_data = None
+        else:
+            self.reg_data = RegData(stream, verbose)
+            self._sections.append(self.reg_data)
+
+    def iter_messages(self):
+        for section in self._sections:
+            yield from section.iter_messages()
+
+    def write_syx(self, outfile):
+        write_syx_file(outfile, self.iter_messages())
+
+    def _cereal(self):
+        return collections.OrderedDict([
+            ('song_data', self.song_data._cereal()),
+            ('reg_data', self.reg_data._cereal() if self.reg_data else None)
+        ])
+
 
 def read_syx_file(infile):
     """Read in a binary or hex syx file.
@@ -818,18 +893,6 @@ def write_syx_file(outfile, messages):
 def filter_yamaha_sysex(messages):
     return (m for m in messages if m.type == 'sysex' and m.data[0] == YAMAHA)
 
-def read_dgx_dump(messages, verbose=False, songonly=False):
-    stream = filter_yamaha_sysex(messages)
-    dmsgs, song_data = decode_section_messages(
-        stream, SONG_SECTION_BYTE, verbose)
-    if songonly:
-        reg_data = None
-    else:
-        reg_msgs, reg_data = decode_section_messages(
-            stream, REG_SECTION_BYTE, verbose)
-        dmsgs.extend(reg_msgs)
-    return dmsgs, song_data, reg_data
-
 def _read_dump_from_filename(filename, verbose=False, songonly=False):
     # if filename == '-':
     #     # stdin in binary mode
@@ -842,20 +905,20 @@ def _read_dump_from_filename(filename, verbose=False, songonly=False):
         errprint("Reading from file {!r}".format(args.input))
     with open(filename, 'rb') as infile:
         messages = read_syx_file(infile)
-    ddb = read_dgx_dump(messages, verbose, songonly)
-    return ddb
+    return DgxDump(messages, verbose, songonly)
 
 def _read_dump_from_portname(portname, verbose=False, songonly=False):
     if verbose:
         errprint("Listening to port {!r}".format(args.input))
     with mido.open_input(portname) as inport:
-        ddb = read_dgx_dump(inport, args.verbose, args.songonly)
+        dump = DgxDump(inport, verbose, songonly)
     if verbose:
         errprint("All messages read from port")
-    return ddb
+    return dump
 
 # argparser stuff
-_argparser = argparse.ArgumentParser(description="Extract UserSong MIDI files from a sysex dump")
+_argparser = argparse.ArgumentParser(
+    description="Extract UserSong MIDI files from a sysex dump")
 _argparser.add_argument('input', type=str,
                         help="Port to read from (run 'mido-ports' to list available ports) / Filename")
 
@@ -881,11 +944,9 @@ _rgroup.add_argument('-q', '--quiet', action='store_true',
 
 def _main(args):
     if args.fileinput:
-        ddb = _read_dump_from_filename(args.input, args.verbose, args.songonly)
+        dump = _read_dump_from_filename(args.input, args.verbose, args.songonly)
     else:
-        ddb = _read_dump_from_portname(args.input, args.verbose, args.songonly)
-
-    basket, dump_song_data, dump_reg_data = ddb
+        dump = _read_dump_from_portname(args.input, args.verbose, args.songonly)
 
     if args.clobber:
         fmode = 'wb'
@@ -897,13 +958,12 @@ def _main(args):
             errprint("Writing dump file {!r}".format(args.dumpfile))
         try:
             with open(args.dumpfile, fmode) as outfile:
-                write_syx_file(outfile, (dm.message for dm in basket))
+                dump.write_syx(dump)
         except FileExistsError:
             errprint("Error: file exists: {!r}. Ignoring...".format(
                 args.dumpfile))
 
-    usersongs = SongData(dump_song_data)
-    for song in usersongs.songs:
+    for song in dump.song_data.songs:
         if not args.quiet:
             song.print_info()
             print()
@@ -925,8 +985,7 @@ def _main(args):
                         filename))
 
     if not (args.quiet or args.songonly):
-        regs = RegData(dump_reg_data)
-        for setting in regs:
+        for setting in dump.reg_data:
             setting.print_settings()
             print()
 
