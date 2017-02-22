@@ -1,8 +1,6 @@
 import mido
-import itertools
 import sys
 import collections
-import os.path
 import struct
 import argparse
 
@@ -22,18 +20,32 @@ def errprint(*args, **kwargs):
 class ExtractorError(Exception):
     """Base class for custom exceptions"""
     pass
+
+
 class MessageParsingError(ExtractorError):
-    """Exception to be raised when something unexpected happens while
+    """Exceptionraised when something unexpected happens while
     parsing messages"""
+    def __init__(self, description, msg=None):
+        self.msg = msg
+
+
+class MessageSequenceError(ExtractorError):
+    """Exception raised on errors while collecting a sequence of messages"""
     pass
+
+
 class MalformedDataError(ExtractorError):
     """Exception to be raised when something unexpected happens while
     parsing the data extracted from the messages"""
     pass
+
+
 class NotRecordedError(ExtractorError):
     """Exception to be raised when
     trying to get something that wasn't recorded"""
     pass
+
+
 
 DumpMessageTuple = collections.namedtuple(
     'DumpMessageTuple', 'message header section a_size b_size run payload end')
@@ -64,15 +76,15 @@ def parse_dump_message(msg):
     END_MARKER = (0x7F, 0x7F, 0x7F)
 
     if msg.type != 'sysex':
-        raise MessageParsingError("Incorrect message type")
+        raise MessageParsingError("Incorrect message type", msg)
 
     header = msg.data[HEADER_SLICE]
     if header[0] != YAMAHA:
-        raise MessageParsingError("Not a Yamaha message")
+        raise MessageParsingError("Not a Yamaha message", msg)
 
     section = msg.data[TYPE_INDEX]
     if section not in (SONG_SECTION_BYTE, REG_SECTION_BYTE):
-        raise MessageParsingError("Unknown data section")
+        raise MessageParsingError("Unknown data section", msg)
 
     a_size = unpack_seven(msg.data[A_SIZE_SLICE])
     b_size = unpack_seven(msg.data[B_SIZE_SLICE])
@@ -85,12 +97,12 @@ def parse_dump_message(msg):
         end = True
     else:
         if sum(msg.data[CHECK_SLICE]) % 0x80 != 0:
-            raise MessageParsingError("Checksum invalid")
+            raise MessageParsingError("Checksum invalid", msg)
         run = unpack_seven(zbytes)
         end = False
         rpayload = msg.data[PAYLOAD_SLICE]
         if len(rpayload) != a_size:
-            raise MessageParsingError("Content length mismatch")
+            raise MessageParsingError("Content length mismatch", msg)
         payload = reconstitute_all(rpayload)
 
     return DumpMessageTuple(msg, header, section,
@@ -110,7 +122,10 @@ def dump_message_section(messages, section=None, verbose=False):
 
     run = 0
     dmessages = (parse_dump_message(msg) for msg in messages)
-    dm = next(dmessages)
+    try:
+        dm = next(dmessages)
+    except StopIteration:
+        raise MessageSequenceError("Section empty")
     if section is None:
         section = dm.section
     if verbose:
@@ -123,9 +138,9 @@ def dump_message_section(messages, section=None, verbose=False):
         errprint("Section: {}".format(section_name))
     while not dm.end:
         if dm.section != section:
-            raise MessageParsingError("Type mismatch")
+            raise MessageSequenceError("Type mismatch")
         if dm.run != run:
-            raise MessageParsingError("Running count mismatch")
+            raise MessageSequenceError("Running count mismatch")
         run += dm.a_size
         if verbose:
             count += 1
@@ -134,7 +149,10 @@ def dump_message_section(messages, section=None, verbose=False):
                     count, expected_count, run, expected_run,
                     cl=count_len, rl=run_len))
         yield dm
-        dm = next(dmessages)
+        try:
+            dm = next(dmessages)
+        except StopIteration:
+            raise MessageSequenceError("Section incomplete")
     if verbose:
         count += 1
         errprint("Message {:>{cl}} of {}, end of section".format(
@@ -773,12 +791,11 @@ class RegSetting(collections.abc.Mapping):
         return len(self._dict)
 
 
-
 def read_syx_file(infile):
     """Read in a binary or hex syx file.
     Takes a binary mode file object.
     (like mido.read_syx_file, but uses file objects)
-    Returns a list of mido Messages
+    Returns iterator over mido Messages
     """
     data = infile.read()
     parser = mido.Parser()
@@ -787,25 +804,7 @@ def read_syx_file(infile):
     else:
         for line in data.splitlines():
             parser.feed(bytes.fromhex(line.decode('latin1').strip()))
-    return list(parser)
-
-def read_syx_file_lazy(infile):
-    """Lazily read Messages from a binary or hex syx file.
-    (useful for when you don't have EOF)
-    Yields mido Messages.
-    """
-    first = infile.read(1)
-    parser = mido.Parser()
-    if first == b'\xF0':
-        parser.feed(first)
-        parser.feed(itertools.chain.from_iterable(infile))
-    else:
-        firstline = first + infile.readline()
-        parser.feed(bytes.fromhex(firstline.decode('latin1').strip()))
-        parser.feed(itertools.chain.from_iterable(
-            bytes.fromhex(line.decode('latin1').strip()) for line in infile))
-    yield from parser
-
+    return iter(parser)
 
 def write_syx_file(outfile, messages):
     """Write a binary syx file.
@@ -831,8 +830,29 @@ def read_dgx_dump(messages, verbose=False, songonly=False):
         dmsgs.extend(reg_msgs)
     return dmsgs, song_data, reg_data
 
+def _read_dump_from_filename(filename, verbose=False, songonly=False):
+    # if filename == '-':
+    #     # stdin in binary mode
+    #     # Needs EOF.
+    #     if args.verbose:
+    #         errprint("Reading from stdin")
+    #     messages = read_syx_file(sys.stdin.buffer)
+    # else:
+    if verbose:
+        errprint("Reading from file {!r}".format(args.input))
+    with open(filename, 'rb') as infile:
+        messages = read_syx_file(infile)
+    ddb = read_dgx_dump(messages, verbose, songonly)
+    return ddb
 
-
+def _read_dump_from_portname(portname, verbose=False, songonly=False):
+    if verbose:
+        errprint("Listening to port {!r}".format(args.input))
+    with mido.open_input(portname) as inport:
+        ddb = read_dgx_dump(inport, args.verbose, args.songonly)
+    if verbose:
+        errprint("All messages read from port")
+    return ddb
 
 # argparser stuff
 _argparser = argparse.ArgumentParser(description="Extract UserSong MIDI files from a sysex dump")
@@ -859,30 +879,11 @@ _rgroup.add_argument('-v', '--verbose', action='store_true',
 _rgroup.add_argument('-q', '--quiet', action='store_true',
                      help="Don't print the song stats and one-touch-settings to stdout")
 
-
-if __name__ == "__main__":
-
-    args = _argparser.parse_args()
-
+def _main(args):
     if args.fileinput:
-        if args.input == '-':
-            # stdin in binary mode
-            if args.verbose:
-                errprint("Reading from stdin")
-            messages = read_syx_file_lazy(sys.stdin.buffer)
-        else:
-            if args.verbose:
-                errprint("Reading from file {!r}".format(args.input))
-            with open(args.input, 'rb') as infile:
-                messages = read_syx_file(infile)
-        ddb = read_dgx_dump(messages, args.verbose, args.songonly)
+        ddb = _read_dump_from_filename(args.input, args.verbose, args.songonly)
     else:
-        if args.verbose:
-            errprint("Listening to port {!r}".format(args.input))
-        with mido.open_input(args.input) as inport:
-            ddb = read_dgx_dump(inport, args.verbose, args.songonly)
-        if args.verbose:
-            errprint("All messages read from port")
+        ddb = _read_dump_from_portname(args.input, args.verbose, args.songonly)
 
     basket, dump_song_data, dump_reg_data = ddb
 
@@ -928,3 +929,7 @@ if __name__ == "__main__":
         for setting in regs:
             setting.print_settings()
             print()
+
+if __name__ == "__main__":
+    args = _argparser.parse_args()
+    _main(args)
