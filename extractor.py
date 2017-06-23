@@ -905,6 +905,8 @@ def _read_dump_from_filename(filename, verbose=False, songonly=False):
         errprint("Reading from file {!r}".format(args.input))
     with open(filename, 'rb') as infile:
         messages = read_syx_file(infile)
+    if verbose:
+        errprint("All messages read from port")
     return DgxDump(messages, verbose, songonly)
 
 def _read_dump_from_portname(portname, verbose=False, songonly=False):
@@ -958,7 +960,7 @@ def _main(args):
             errprint("Writing dump file {!r}".format(args.dumpfile))
         try:
             with open(args.dumpfile, fmode) as outfile:
-                dump.write_syx(dump)
+                dump.write_syx(outfile)
         except FileExistsError:
             errprint("Error: file exists: {!r}. Ignoring...".format(
                 args.dumpfile))
