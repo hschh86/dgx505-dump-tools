@@ -30,8 +30,8 @@ def msg_callback(message):
     # bytes to stdout
     sys.stdout.buffer.write(message.bin())
 
-eprint('Reading from port {!r}. Press enter to stop'.format(inport_name))
 with mido.open_input(inport_name, callback=msg_callback) as inport:
+    eprint('Reading from port {!r}. Press enter to stop'.format(inport.name))
     # wait for any user input
     input()
     # just in case

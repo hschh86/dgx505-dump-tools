@@ -902,7 +902,7 @@ def _read_dump_from_filename(filename, verbose=False, songonly=False):
     #     messages = read_syx_file(sys.stdin.buffer)
     # else:
     if verbose:
-        errprint("Reading from file {!r}".format(args.input))
+        errprint("Reading from file {!r}".format(filename))
     with open(filename, 'rb') as infile:
         messages = read_syx_file(infile)
     if verbose:
@@ -910,9 +910,9 @@ def _read_dump_from_filename(filename, verbose=False, songonly=False):
     return DgxDump(messages, verbose, songonly)
 
 def _read_dump_from_portname(portname, verbose=False, songonly=False):
-    if verbose:
-        errprint("Listening to port {!r}".format(args.input))
     with mido.open_input(portname) as inport:
+        if verbose:
+            errprint("Listening to port {!r}".format(inport.name))
         dump = DgxDump(inport, verbose, songonly)
     if verbose:
         errprint("All messages read from port")

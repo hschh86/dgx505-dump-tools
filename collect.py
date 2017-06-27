@@ -44,7 +44,7 @@ else:
     outfile = open(args.outfile, 'xb')
 
 with mido.open_input(inport_name) as inport:
-    eprint('Reading from port', inport_name)
+    eprint('Reading from port', inport.name)
     messages = []
     for message in mido_util.grab_sysex_until_clock(inport):
         eprint('Message recieved...')
