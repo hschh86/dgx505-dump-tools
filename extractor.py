@@ -906,7 +906,7 @@ def _read_dump_from_filename(filename, verbose=False, songonly=False):
     with open(filename, 'rb') as infile:
         messages = read_syx_file(infile)
     if verbose:
-        errprint("All messages read from port")
+        errprint("All messages read from file")
     return DgxDump(messages, verbose, songonly)
 
 def _read_dump_from_portname(portname, verbose=False, songonly=False):
@@ -914,8 +914,8 @@ def _read_dump_from_portname(portname, verbose=False, songonly=False):
         if verbose:
             errprint("Listening to port {!r}".format(inport.name))
         dump = DgxDump(inport, verbose, songonly)
-    if verbose:
-        errprint("All messages read from port")
+        if verbose:
+            errprint("All messages read from port")
     return dump
 
 # argparser stuff
