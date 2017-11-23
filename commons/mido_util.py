@@ -5,6 +5,7 @@ utilities for working with mido ports and messages
 """
 import mido
 
+
 def get_portname(portname, guess=False):
     """
     Get the name of a mido input port.
@@ -20,6 +21,7 @@ def get_portname(portname, guess=False):
             raise ValueError('Unable to guess port from {!r}'.format(portname))
     else:
         return portname
+
 
 def grab_sysex_until_clock(port):
     """
@@ -40,6 +42,7 @@ def grab_sysex_until_clock(port):
         elif message.type == 'clock':
             break
 
+
 def writeout_hex(outfile, messages):
     """
     Write messages as hexadecimal to a (text-mode) file object,
@@ -51,6 +54,7 @@ def writeout_hex(outfile, messages):
         outfile.write(message.hex())
         outfile.write('\n')
 
+
 def writeout_bytes(outfile, messages):
     """
     Write messages as bytes to a (binary-mode) file object,
@@ -61,6 +65,7 @@ def writeout_bytes(outfile, messages):
     for message in messages:
         outfile.write(message.bin())
 
+
 def readin_bytes(infile):
     """
     Read in messages from a binary mode file object.
@@ -70,3 +75,31 @@ def readin_bytes(infile):
     parser = mido.Parser()
     parser.feed(data)
     return iter(parser)
+
+
+def read_syx_file(infile):
+    """
+    Read in a binary or hex syx file.
+    Takes a binary mode file object.
+    (like mido.read_syx_file, but uses file objects)
+    Returns iterator over mido Messages
+    """
+    data = infile.read()
+    parser = mido.Parser()
+    if data[0] == 0xF0:
+        parser.feed(data)
+    else:
+        for line in data.splitlines():
+            parser.feed(bytes.fromhex(line.decode('latin1').strip()))
+    return iter(parser)
+
+
+def write_syx_file(outfile, messages):
+    """
+    Write a binary syx file.
+    Takes a binary mode file object
+    (like mido.write_syx_file, but uses file objects.)
+    """
+    for message in messages:
+        if message.type == 'sysex':
+            outfile.write(message.bin())

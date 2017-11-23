@@ -1,13 +1,14 @@
 # temporary, I hope
+from time import sleep
+import argparse
 
 import mido
 from commons import mido_util
 
-from time import sleep
-import argparse
 
 argparser = argparse.ArgumentParser(
-    description="Dumps contents of a binary midi message stream file to a virtual midi port")
+    description="Dumps contents of a binary midi message stream file "
+                "to a virtual midi port")
 
 argparser.add_argument(
     'filename', type=str,

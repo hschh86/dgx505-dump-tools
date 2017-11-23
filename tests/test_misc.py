@@ -1,11 +1,13 @@
 import pytest
 
-from misc_utils import pack_seven, pack_variable_length, unpack_variable_length
-from extractor import unpack_seven, reconstitute, reconstitute_all
+from commons.util import (pack_seven, pack_variable_length,
+                          unpack_variable_length, unpack_seven,
+                          reconstitute, reconstitute_all)
+
 
 def test_seven():
     examples = [(b'\x35\x7E', (0x35 << 7) + 0x7E),
-                (b'\x10\x03\x00', 2**18 + (3<<7)),
+                (b'\x10\x03\x00', 2**18 + (3 << 7)),
                 (b'\x10\x00', 0x800),
                 (b'\x08\x68', 0x468),
                 (b'\x7F\x7F\x7F\x7F', 0x0FFFFFFF),
@@ -24,6 +26,7 @@ def test_seven():
         pack_seven(-1)
     with pytest.raises(ValueError):
         pack_seven(2**8, length=1)
+
 
 def test_reconstitute():
     examples = [(b'\x1A'*7+b'\x40', b'\x9A'+b'\x1A'*6),
@@ -44,12 +47,13 @@ def test_reconstitute():
         with pytest.raises(ValueError):
             reconstitute(a)
 
+
 def test_vl():
     for a in [b'\x00', b'\x23', b'\x6E', b'\x7F']:
         assert unpack_variable_length(a) == a[0]
         assert pack_variable_length(a[0]) == a
     examples = [(b'\xB5\x7E', (0x35 << 7) + 0x7E),
-                (b'\x90\x83\x00', 2**18 + (3<<7)),
+                (b'\x90\x83\x00', 2**18 + (3 << 7)),
                 (b'\x90\x00', 0x800),
                 (b'\x88\x68', 0x468),
                 (b'\xFF\xFF\xFF\x7F', 0x0FFFFFFF)]

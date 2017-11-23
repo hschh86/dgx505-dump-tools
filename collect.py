@@ -6,21 +6,28 @@ Starts reading from the first sysex message
 and stops reading at the first Clock message.
 
 """
+# import sys
+import argparse
+
 import mido
 
 from commons.util import eprint
 from commons import mido_util
 
-import argparse#, sys
-
-argparser = argparse.ArgumentParser(description="Writes out bulk dump data to file")
-argparser.add_argument('-p', '--port', type=str,
-                       help="Port to read from (run 'mido-ports' to list available ports)")
-argparser.add_argument('outfile', type=str, help="File to write to. Error if file already exists")
-argparser.add_argument('-g', '--guessport', action='store_true',
-                       help="Guess which port to use (partial name match on PORT)")
-argparser.add_argument('-t', '--plaintext', action='store_true',
-                       help="Write as hexadecimal text instead of binary")
+argparser = argparse.ArgumentParser(
+    description="Writes out bulk dump data to file")
+argparser.add_argument(
+    '-p', '--port', type=str,
+    help="Port to read from (run 'mido-ports' to list available ports)")
+argparser.add_argument(
+    'outfile', type=str,
+    help="File to write to. Error if file already exists")
+argparser.add_argument(
+    '-g', '--guessport', action='store_true',
+    elp="Guess which port to use (partial name match on PORT)")
+argparser.add_argument(
+    '-t', '--plaintext', action='store_true',
+    help="Write as hexadecimal text instead of binary")
 args = argparser.parse_args()
 
 inport_name = mido_util.get_portname(args.port, args.guessport)
