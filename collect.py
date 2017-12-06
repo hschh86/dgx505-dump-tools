@@ -4,33 +4,37 @@ collect.py
 write out bulk dump data to a file
 Starts reading from the first sysex message
 and stops reading at the first Clock message.
-
 """
 # import sys
 import argparse
-
-import mido
 
 from commons.util import eprint
 from commons import mido_util
 
 argparser = argparse.ArgumentParser(
     description="Writes out bulk dump data to file")
+
 argparser.add_argument(
     '-p', '--port', type=str,
     help="Port to read from (run 'mido-ports' to list available ports)")
-argparser.add_argument(
-    'outfile', type=str,
-    help="File to write to. Error if file already exists")
-argparser.add_argument(
+
+portargs = argparser.add_mutually_exclusive_group()
+portargs.add_argument(
     '-g', '--guessport', action='store_true',
-    elp="Guess which port to use (partial name match on PORT)")
+    help="Guess which port to use (partial name match on PORT)")
+portargs.add_argument(
+    '-v', '--virtual', action='store_true',
+    help='Use virtual port')
+
 argparser.add_argument(
     '-t', '--plaintext', action='store_true',
     help="Write as hexadecimal text instead of binary")
-args = argparser.parse_args()
 
-inport_name = mido_util.get_portname(args.port, args.guessport)
+argparser.add_argument(
+    'outfile', type=str,
+    help="File to write to. Error if file already exists")
+
+args = argparser.parse_args()
 
 # DEALING WITH STDOUT IS A PAIN SO I'M NOT GONNA
 #    if args.plaintext:
@@ -50,7 +54,7 @@ if args.plaintext:
 else:
     outfile = open(args.outfile, 'xb')
 
-with mido.open_input(inport_name) as inport:
+with mido_util.open_input(args.port, args.guessport, args.virtual) as inport:
     eprint('Reading from port', inport.name)
     messages = []
     for message in mido_util.grab_sysex_until_clock(inport):

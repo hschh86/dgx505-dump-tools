@@ -1,42 +1,56 @@
 """
 slurp.py
 
-writes out all midi messages, as bytes, to stdout, until enter pressed
+Listens to a port, outputs messages recieved as mido text to stdout.
+Uses the mido message object text serialisation.
+The 'time' attribute of each message is set to the time elapsed, in seconds,
+since listening began. Only approximately, though, so don't rely on it for
+proper recording.
 """
 import sys
 import argparse
 
-import mido
-
+from commons import mido_util
+from commons.timers import offsetTimer
 from commons.util import eprint
-from commons.mido_util import get_portname
-
 
 argparser = argparse.ArgumentParser(
-    description="Dumps midi messages as binary to stdout")
+    description="Dumps midi messages as mido text with line breaks to stdout")
+
 argparser.add_argument(
-    'port', type=str,
+    '-p', '--port', type=str,
     help="Port to read from (run 'mido-ports' to list available ports)")
-argparser.add_argument(
+
+portargs = argparser.add_mutually_exclusive_group()
+portargs.add_argument(
     '-g', '--guessport', action='store_true',
     help="Guess which port to use (partial name match on PORT)")
-argparser.add_argument(
-    '-v', '--verbose', action='store_true',
-    help="print human-readable messages to stderr")
+portargs.add_argument(
+    '-v', '--virtual', action='store_true',
+    help='Use virtual port')
+
 args = argparser.parse_args()
 
-inport_name = get_portname(args.port, args.guessport)
+
+# is using the callback-thread thing the right way to do this?
+# dunno. super timer accuracy isn't important anyway
+
+def new_callback():
+    # this is a bit of an overcomplicated way to do it but whatever
+    timer = offsetTimer()
+
+    def msg_callback(message):
+        # mutate the message!
+        message.time = timer()
+        # write text to stdout. Also add a line break
+        sys.stdout.write(str(message)+'\n')
+        sys.stdout.flush()
+
+    return msg_callback
 
 
-def msg_callback(message):
-    # human readable to stderr
-    if args.verbose:
-        eprint(message)
-    # bytes to stdout
-    sys.stdout.buffer.write(message.bin())
-
-
-with mido.open_input(inport_name, callback=msg_callback) as inport:
+with mido_util.open_input(args.port, args.guessport, args.virtual,
+                          callback=new_callback()) as inport:
     eprint('Reading from port {!r}. Press enter to stop'.format(inport.name))
     # wait for any user input
     input()

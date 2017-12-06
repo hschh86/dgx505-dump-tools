@@ -6,21 +6,36 @@ utilities for working with mido ports and messages
 import mido
 
 
-def get_portname(portname, guess=False):
+def guess_portname(fragment, portlist):
     """
-    Get the name of a mido input port.
-    If guess is True, iterate over all port and return the first that
-    has portname as a substring of its name
-    If guess is False, just return portname
+    iterate over all names in portlist and return the first that has fragment
+    as a substring of its name
+    Raises ValueError if not found
     """
-    if guess and portname:
-        for port in mido.get_input_names():
-            if portname in port:
-                return port
-        else:
-            raise ValueError('Unable to guess port from {!r}'.format(portname))
-    else:
-        return portname
+    for port in portlist:
+        if fragment in port:
+            return port
+    raise ValueError('Unable to guess port from {!r}'.format(fragment))
+
+
+def open_input(name=None, guess=False, virtual=False, *args, **kwargs):
+    """
+    Wrapper around mido.open_input, that has an option to guess the name
+    from a substring.
+    """
+    if (name is not None) and (not virtual) and guess:
+        name = guess_portname(name, mido.get_input_names())
+    return mido.open_input(name, virtual, *args, **kwargs)
+
+
+def open_output(name=None, guess=False, virtual=False, *args, **kwargs):
+    """
+    Wrapper around mido.open_output, that has an option to guess the name
+    from a substring.
+    """
+    if (name is not None) and (not virtual) and guess:
+        name = guess_portname(name, mido.get_output_names())
+    return mido.open_output(name, virtual, *args, **kwargs)
 
 
 def grab_sysex_until_clock(port):
@@ -75,6 +90,17 @@ def readin_bytes(infile):
     parser = mido.Parser()
     parser.feed(data)
     return iter(parser)
+
+
+def readin_strings(infile):
+    """
+    Read in string-encoded messages separated by line from a text mode file
+    object. Similar to mido.parse_string_stream, except doesn't deal with the
+    exceptions.
+    Returns iterator over messages.
+    """
+    for line in infile:
+        yield mido.parse_string(line.decode('ascii'))
 
 
 def read_syx_file(infile):
