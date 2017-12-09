@@ -241,3 +241,32 @@ class LazyReadonlyPropertyDescriptor(object):
 
     def __delete__(self, obj):
         raise AttributeError("can't delete attribute")
+
+
+def lazy_readonly_setup_property(in_name, setup_method, doc=None):
+    """
+    Use inside a class definition, eg:
+    class Whatever(object):
+        def my_setup_method(self):
+            do whatever
+            self._a = result
+
+        my_property = lazy_readonly_setup_property('_a', my_setup_method)
+
+    instance = Whatever()
+    instance.my_property == result
+
+    If instance.my_property is accessed and instance._a is defined, then
+    instance._a is returned immediately; otherwise my_setup_method(instance)
+    is called before instance._a is returned. Make sure that my_setup_method
+    defines the property!
+
+    in_name: the name of the attribute on instances to store in
+    """
+    def fget(self, in_name=in_name, setup_method=setup_method):
+        try:
+            return getattr(self, in_name)
+        except AttributeError:
+            setup_method(self)
+            return getattr(self, in_name)
+    return property(fget, doc=doc)

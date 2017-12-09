@@ -96,7 +96,7 @@ class DumpMessage(object):
         return self.padded_payload
 
 
-class DataSection(object):
+class DumpSection(object):
     SECTION_BYTE = None
     SECTION_NAME = None
     EXPECTED_COUNT = None

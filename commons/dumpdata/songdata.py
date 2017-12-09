@@ -3,10 +3,10 @@ import struct
 
 from ..util import slicebyn, boolean_bitarray_tuple, lazy_readonly_property
 from ..exceptions import MalformedDataError, NotRecordedError
-from .messages import DataSection
+from .messages import DumpSection
 
 
-class SongData(DataSection):
+class SongDumpSection(DumpSection):
     """
     Container for all the useful data in a song section of a bulk dump
     """
@@ -15,86 +15,124 @@ class SongData(DataSection):
     EXPECTED_COUNT = 39
     EXPECTED_RUN = 76904
 
-    BLOCK_COUNT = 0x82
-    BLOCK_SIZE = 0x200
+    @lazy_readonly_property('_songs')
+    def songs(self):
+        return SongData(self.data)
 
-    def __init__(self, *args, **kwargs):
+    def _cereal(self):
+        return self.songs._cereal()
+
+
+class SongData(collections.abc.Sequence):
+
+    SONGS_OFFSET = 0x00
+    MYSTERY_SLICE = slice(0x01, 0x15D)
+    TRACKS_SLICE = slice(0x15D, 0x167)
+    SONG_DURATION_SLICE = slice(0x167, 0x17B)
+    TRACK_DURATION_SLICE = slice(0x17B, 0x1F3)
+    PRESETSTYLE_SLICE = slice(0x1F3, 0x22F)
+    BEGINNING_BLOCKS_SLICE = slice(0x22F, 0x24D)
+    NEXT_BLOCKS_SLICE = slice(0x24D, 0x2CF)
+    START_MARKER_SLICE = slice(0x2CF, 0x2D5)
+    BLOCK_DATA_SLICE = slice(0x2D5, 0x106D5)
+    END_MARKER_SLICE = slice(0x106D5, None)
+
+    EXPECTED_SIZE = 0x106DB
+
+    PRESETSTYLE = b'PresetStyle\0'*5
+    MARKER = b'PK0001'
+
+    def _message_format_checks(self):
+        if len(self.data) != self.EXPECTED_SIZE:
+            raise MalformedDataError("Data wrong length!")
+        presetstyle = self.data[self.PRESETSTYLE_SLICE]
+        startmarker = self.data[self.START_MARKER_SLICE]
+        endmarker = self.data[self.END_MARKER_SLICE]
+        if not ((startmarker == endmarker == self.MARKER) and
+                (presetstyle == self.PRESETSTYLE)):
+            raise MalformedDataError("Invalid format")
+        if (self.data[self.SONGS_OFFSET] >= (1 << 5)
+                or any(x >= (1 << 6) for x in self.data[self.TRACKS_SLICE])):
+            raise MalformedDataError("Unexpected high bits in the fields")
+
+    def __init__(self, data):
         """
         data = the concatenated payload data.
         songs are available through the songs attribute.
         """
-        super().__init__(*args, **kwargs)
-
-        SONGS_OFFSET = 0x00
-        MYSTERY_SLICE = slice(0x01, 0x15D)
-        TRACKS_SLICE = slice(0x15D, 0x167)
-        SONG_DURATION_SLICE = slice(0x167, 0x17B)
-        TRACK_DURATION_SLICE = slice(0x17B, 0x1F3)
-        PRESETSTYLE_SLICE = slice(0x1F3, 0x22F)
-        BEGINNING_BLOCKS_SLICE = slice(0x22F, 0x24D)
-        NEXT_BLOCKS_SLICE = slice(0x24D, 0x2CF)
-        START_MARKER_SLICE = slice(0x2CF, 0x2D5)
-        BLOCK_DATA_SLICE = slice(0x2D5, 0x106D5)
-        END_MARKER_SLICE = slice(0x106D5, None)
-
-        EXPECTED_SIZE = 0x106DB
-
-        PRESETSTYLE = b'PresetStyle\0'*5
-        MARKER = b'PK0001'
-
-        # message format checks
-        if len(self.data) != EXPECTED_SIZE:
-            raise MalformedDataError("Data wrong length!")
-        presetstyle = self.data[PRESETSTYLE_SLICE]
-        startmarker = self.data[START_MARKER_SLICE]
-        endmarker = self.data[END_MARKER_SLICE]
-        if not ((startmarker == endmarker == MARKER) and
-                (presetstyle == PRESETSTYLE)):
-            raise MalformedDataError("Invalid format")
+        self.data = data
+        self._message_format_checks()
 
         # song data
-        try:
-            songsfield = boolean_bitarray_tuple(self.data[SONGS_OFFSET], 5)
-            tracksfield = [boolean_bitarray_tuple(x, 6)
-                           for x in self.data[TRACKS_SLICE]]
-        except ValueError:
-            raise MalformedDataError("Unexpected high bits in the fields")
+        self._song_field = boolean_bitarray_tuple(data[self.SONGS_OFFSET], 5)
+        self._track_fields = [boolean_bitarray_tuple(x, 6)
+                              for x in data[self.TRACKS_SLICE]]
+        self._song_durations = struct.unpack('>5I',
+                                             data[self.SONG_DURATION_SLICE])
+        self._track_durations = list(slicebyn(
+            struct.unpack('>30I', data[self.TRACK_DURATION_SLICE]), 6))
 
-        songdslice = self.data[SONG_DURATION_SLICE]
-        song_durations = struct.unpack('>5I', songdslice)
+        self._track_beginning_blocks = list(slicebyn(
+            data[self.BEGINNING_BLOCKS_SLICE], 6))
 
-        trackdslice = self.data[TRACK_DURATION_SLICE]
-        track_durations_all = struct.unpack('>30I', trackdslice)
+        self._block_system = SongDataBlockSystem(
+            data[self.NEXT_BLOCKS_SLICE], data[self.BLOCK_DATA_SLICE])
 
-        self._beginningblocks = self.data[BEGINNING_BLOCKS_SLICE]
-        self._nextblocks = self.data[NEXT_BLOCKS_SLICE]
-        self._blockdata = self.data[BLOCK_DATA_SLICE]
+        self._mystery = self.data[self.MYSTERY_SLICE]
 
-        self._mystery = self.data[MYSTERY_SLICE]
+        self._songs = [None] * 5
 
-        track_durations = slicebyn(track_durations_all, 6)
-        bblocks = slicebyn(self._beginningblocks, 6)
-        numbers = range(1, 5+1)
+    def __getitem__(self, key):
+        """
+        Get the UserSong object.
+        Note that we use zero based indexing, so UserSong1 corresponds to [0]
+        and so on.
+        Negative indices not supported, because why would you need that.
+        """
+        if self._songs[key] is None:
+            self._songs[key] = UserSong(
+                self._block_system, key+1,
+                self._song_field[key], self._song_durations[key],
+                self._track_fields[key], self._track_durations[key],
+                self._track_beginning_blocks[key])
+        return self._songs[key]
 
-        self.songs = tuple(
-            UserSong(self, *params) for params in zip(
-                numbers, songsfield, song_durations,
-                tracksfield, track_durations, bblocks))
+    def __len__(self, key):
+        return len(self._songs)  # 5
+    # The abstract base class Sequence takes care of the rest.
+
+    # cereal!
+    def _cereal(self):
+        return [song._cereal() for song in self]
+
+
+class SongDataBlockSystem(object):
+
+    BLOCK_COUNT = 0x82
+    BLOCK_SIZE = 0x200
+
+    def __init__(self, next_blocks_table, block_data):
+        self._next_blocks_table = next_blocks_table
+        self._block_data = block_data
 
     def get_block_data(self, n):
-        """Returns the specified block data, as a memoryview"""
+        """
+        Returns the specified block data of block n
+        """
         if 1 <= n <= self.BLOCK_COUNT:
             end = self.BLOCK_SIZE * n
             start = end - self.BLOCK_SIZE
-            return self._blockdata[start:end]
+            return self._block_data[start:end]
         else:
             raise IndexError("Invalid index: {}".format(n))
 
     def get_next_block_number(self, n):
-        """Returns the number of the block following block n"""
+        """
+        Returns the number of the block following block n
+        """
         if n < 1:
             raise IndexError("Invalid index: {}".format(n))
-        return self._nextblocks[n-1]
+        return self._next_blocks_table[n-1]
 
     def _block_data_iter(self, start_block, length):
         """Yields data blocks up to length from start_block"""
@@ -132,10 +170,6 @@ class SongData(DataSection):
         blocks = list(self._block_data_iter(start_block, size))
         return size, blocks
 
-    # cereal!
-    def _cereal(self):
-        return [song._cereal() for song in self.songs]
-
 
 class UserSong(object):
     """
@@ -145,7 +179,7 @@ class UserSong(object):
     UserSongTrack = collections.namedtuple(
         "UserSongTrack", "track name active duration size blocks")
 
-    def __init__(self, songdata, number, active, duration,
+    def __init__(self, block_system, number, active, duration,
                  tracks_active, tracks_duration, start_blocks):
         self.number = number
         self.active = active
@@ -164,7 +198,7 @@ class UserSong(object):
                 size = 0
                 blocks = None
             else:
-                size, blocks = songdata.get_track_blocks(start_block)
+                size, blocks = block_system.get_track_blocks(start_block)
             track = self.UserSongTrack(i+1, TRACK_NAMES[i],
                                        tracks_active[i], tracks_duration[i],
                                        size, blocks)

@@ -1,7 +1,7 @@
 import collections
 
-from .dumpdata.songdata import SongData
-from .dumpdata.regdata import RegData
+from .dumpdata.songdata import SongDumpSection
+from .dumpdata.regdata import RegDumpSection
 from .util import YAMAHA
 from .mido_util import write_syx_file
 
@@ -19,13 +19,13 @@ class DgxDump(object):
 
         stream = filter_yamaha_sysex(messages)
 
-        self.song_data = SongData(stream, verbose)
+        self.song_data = SongDumpSection(stream, verbose)
         self._sections = [self.song_data]
 
         if songonly:
             self.reg_data = None
         else:
-            self.reg_data = RegData(stream, verbose)
+            self.reg_data = RegDumpSection(stream, verbose)
             self._sections.append(self.reg_data)
 
     def iter_messages(self):

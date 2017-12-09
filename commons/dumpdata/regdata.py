@@ -3,10 +3,10 @@ import struct
 
 from ..util import slicebyn
 from ..exceptions import MalformedDataError
-from .messages import DataSection
+from .messages import DumpSection
 
 
-class RegData(DataSection):
+class RegDumpSection(DumpSection):
     """
     Container for the useful data in a reg section
     """

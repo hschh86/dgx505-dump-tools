@@ -2,7 +2,7 @@ import pytest
 import json
 
 from commons.mido_util import read_syx_file
-from commons.dumpdata.regdata import RegData
+from commons.dumpdata.regdata import RegDumpSection
 
 
 @pytest.mark.parametrize("datafile, valuefile", [
@@ -13,7 +13,7 @@ from commons.dumpdata.regdata import RegData
 def test_reg(datafile, valuefile):
     with open(datafile, 'rb') as infile:
         msgs = read_syx_file(infile)
-        dobj = RegData(msgs, verbose=True)
+        dobj = RegDumpSection(msgs, verbose=True)
     with open(valuefile, 'r') as vfile:
         sets = json.load(vfile)
     dset = dobj.get_settings(4, 2)
