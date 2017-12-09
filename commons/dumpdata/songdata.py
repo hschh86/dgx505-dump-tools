@@ -1,7 +1,7 @@
 import collections
 import struct
 
-from ..util import slicebyn, boolean_bitarray_tuple
+from ..util import slicebyn, boolean_bitarray_tuple, lazy_readonly_property
 from ..exceptions import MalformedDataError, NotRecordedError
 from .messages import DataSection
 
@@ -177,8 +177,6 @@ class UserSong(object):
         else:
             self.size = 0
 
-        self._smf = None
-
     def print_info(self):
         """
         Prints the recorded (active) status, duration (in measures),
@@ -201,12 +199,10 @@ class UserSong(object):
         for track in self._datatracks:
             yield from track.blocks
 
-    @property
+    @lazy_readonly_property('_smf')
     def midi(self):
         """The MIDI file, as bytes."""
-        if self._smf is None:
-            self._smf = b''.join(self._midi_blocks_iter())
-        return self._smf
+        return b''.join(self._midi_blocks_iter())
 
     def _cereal(self):
         return collections.OrderedDict([

@@ -1,69 +1,99 @@
-import collections
-
 from ..exceptions import MessageParsingError, MessageSequenceError
-from ..util import YAMAHA, eprint, unpack_seven, reconstitute_all, not_none_get
+from ..util import (YAMAHA, eprint,
+                    unpack_seven, reconstitute_all, not_none_get,
+                    lazy_readonly_property)
 
 
-DumpMessageTuple = collections.namedtuple(
-    'DumpMessageTuple', 'message header section a_size b_size run payload end')
-
-
-def parse_dump_message(msg):
+class DumpMessage(object):
     """
-    Parse a bulk dump sysex message into a DumpMessageTuple of properties
+    Parse a bulk dump sysex message into a DumpMessage of properties
     MessageParsingError is raised if the message is not of the correct format
     ValueError can also be raised if something goes wrong...
 
-    DumpMessageTuple attributes:
+    DumpMessage attributes / properties:
     message: the original mido.Message object
     header: The first 5 bytes, starting with 0x43 for YAMAHA
     section: Either 0x0A (Song section) or 0x09 (Registration section)
-    a_size: full data size (this is the one that gets used)
-    b_size: data size (sans padding?)
+    padded_size: full data size
+    unpadded_size: data size sans padding
+    padding_size: the difference between the sizes, or None if final message
     run: running total, or None if final message
-    payload: the decoded data, or None if final message
+    raw_payload: the encoded data
+    padded_payload: decoded data including padding, or None if final message
+    payload: the decoded data excluding padding, or None if final message
     end: Boolean. True if final message, else False.
     """
-    HEADER_SLICE = slice(None, 5)
-    TYPE_INDEX = 5
-    A_SIZE_SLICE = slice(6, 8)
-    B_SIZE_SLICE = slice(8, 10)
-    RUN_SLICE = slice(10, 13)
-    PAYLOAD_SLICE = slice(13, -1)
-    CHECK_SLICE = slice(6, None)
+    def __init__(self, message):
+        # slices
+        HEADER_SLICE = slice(None, 5)
+        TYPE_INDEX = 5
+        PADDED_SIZE_SLICE = slice(6, 8)
+        UNPADDED_SIZE_SLICE = slice(8, 10)
+        RUN_SLICE = slice(10, 13)
+        PAYLOAD_SLICE = slice(13, -1)
+        CHECK_SLICE = slice(6, None)
+        # The final message of a section has this in the RUN_SLICE:
+        END_MARKER = (0x7F, 0x7F, 0x7F)
 
-    END_MARKER = (0x7F, 0x7F, 0x7F)
+        # save this in case we need it
+        self.message = message
 
-    if msg.type != 'sysex':
-        raise MessageParsingError("Incorrect message type", msg)
+        # sanity checks
+        if message.type != 'sysex':
+            raise MessageParsingError("Incorrect message type", message)
 
-    header = msg.data[HEADER_SLICE]
-    if header[0] != YAMAHA:
-        raise MessageParsingError("Not a Yamaha message", msg)
+        self.header = message.data[HEADER_SLICE]
+        if self.header[0] != YAMAHA:
+            raise MessageParsingError("Not a Yamaha message", message)
 
-    section = msg.data[TYPE_INDEX]
+        self.section = message.data[TYPE_INDEX]
+        # Sizes
+        self.padded_size = unpack_seven(message.data[PADDED_SIZE_SLICE])
+        self.unpadded_size = unpack_seven(message.data[UNPADDED_SIZE_SLICE])
+        # Run / End marker
+        self.zbytes = message.data[RUN_SLICE]
+        if self.zbytes == END_MARKER:
+            self.end = True
+            self.run = None
+            self.raw_payload = None
+            self.padding_size = None
+        else:
+            self.end = False
+            # quick-and-dirty checksum
+            if sum(message.data[CHECK_SLICE]) % 0x80 != 0:
+                raise MessageParsingError("Checksum invalid", message)
+            # running total of the number of encoded bytes in section so far
+            self.run = unpack_seven(self.zbytes)
+            # The undecoded contents of the payload go in self.raw_payload
+            self.raw_payload = message.data[PAYLOAD_SLICE]
+            # content length checks:
+            # - padded size
+            if len(self.raw_payload) != self.padded_size:
+                raise MessageParsingError("Content length mismatch", message)
+            # - size difference should be in range 0..6
+            self.padding_size = self.padded_size - self.unpadded_size
+            if not (0 <= self.padding_size <= 6):
+                raise MessageParsingError("Data size mismatch", message)
+            # - silly padding check; not strictly necessary
+            if self.padding_size:
+                lastbyte = self.raw_payload[-1]
+                padbytes = self.raw_payload[-1-self.padding_size:-1]
+                if (sum(padbytes) + (lastbyte % 2**self.padding_size)) != 0:
+                    raise MessageParsingError("Padding bytes not clear",
+                                              message)
 
-    a_size = unpack_seven(msg.data[A_SIZE_SLICE])
-    b_size = unpack_seven(msg.data[B_SIZE_SLICE])
+    @lazy_readonly_property('_padded_payload')
+    def padded_payload(self):
+        if self.raw_payload is None:
+            return None
+        return memoryview(reconstitute_all(self.raw_payload))
 
-    zbytes = msg.data[RUN_SLICE]
-
-    if zbytes == END_MARKER:
-        run = None
-        payload = None
-        end = True
-    else:
-        if sum(msg.data[CHECK_SLICE]) % 0x80 != 0:
-            raise MessageParsingError("Checksum invalid", msg)
-        run = unpack_seven(zbytes)
-        end = False
-        rpayload = msg.data[PAYLOAD_SLICE]
-        if len(rpayload) != a_size:
-            raise MessageParsingError("Content length mismatch", msg)
-        payload = reconstitute_all(rpayload)
-
-    return DumpMessageTuple(msg, header, section,
-                            a_size, b_size, run, payload, end)
+    @lazy_readonly_property('_payload')
+    def payload(self):
+        if self.padding_size:
+            # trim off the padding bytes
+            return self.padded_payload[:-self.padding_size]
+        return self.padded_payload
 
 
 class DataSection(object):
@@ -76,7 +106,7 @@ class DataSection(object):
         """
         Verifies that all the sizes and running total match and everything.
         MessageParsingError raised if the messages don't match.
-        DumpMessageTuples stored in self.dm_list,
+        DumpMessage objects stored in self.dm_list,
         Concatenated payload memoryview in self.data
 
         message_seq = an iterable of mido messages
@@ -85,7 +115,7 @@ class DataSection(object):
         self.dm_list = []
 
         run = 0
-        dmessages = (parse_dump_message(msg) for msg in message_seq)
+        dmessages = (DumpMessage(msg) for msg in message_seq)
 
         try:
             dm = next(dmessages)
@@ -107,10 +137,10 @@ class DataSection(object):
 
         while not dm.end:
             if dm.section != self.SECTION_BYTE:
-                raise MessageSequenceError("Type mismatch")
+                raise MessageSequenceError("Section mismatch")
             if dm.run != run:
                 raise MessageSequenceError("Running count mismatch")
-            run += dm.a_size
+            run += dm.padded_size
             if verbose:
                 count += 1
                 eprint(
@@ -124,17 +154,19 @@ class DataSection(object):
                 dm = next(dmessages)
             except StopIteration:
                 raise MessageSequenceError("Section incomplete")
-
+        # end of section
         if verbose:
             count += 1
             eprint("Message {:>{cl}} of {}, end of section".format(
                 count, expected_count, cl=count_len, rl=run_len))
 
         self.dm_list.append(dm)
-        databytes = b''.join(dm.payload for dm in self.dm_list if dm.payload)
-
-        self.data = memoryview(databytes)
 
     def iter_messages(self):
         for dm in self.dm_list:
             yield dm.message
+
+    @lazy_readonly_property('_data')
+    def data(self):
+        return memoryview(
+                b''.join(dm.payload for dm in self.dm_list if dm.payload))

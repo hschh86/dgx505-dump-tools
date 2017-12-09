@@ -21,19 +21,20 @@ class RegData(DataSection):
         START_SLICE = slice(0x000, 0x004)
         SETTINGS_SLICE = slice(0x004, 0x2C4)
         END_SLICE = slice(0x2C4, 0x2C8)
-        PAD_SLICE = slice(0x2C8, None)
+        # PAD_SLICE = slice(0x2C8, None)
 
-        EXPECTED_SIZE = 0x2CA
+        # EXPECTED_SIZE = 0x2CA
+        EXPECTED_SIZE = 0x2C8
         SETTING_SIZE = 0x2C
 
         BOOKEND = b'PSR\x03'
-        PADBYTES = b'\x00\x00'
+        # PADBYTES = b'\x00\x00'
 
         # message format checks
         if len(self.data) != EXPECTED_SIZE:
             raise MalformedDataError("Data wrong length!")
-        if not ((self.data[START_SLICE] == self.data[END_SLICE] == BOOKEND)
-                and (self.data[PAD_SLICE] == PADBYTES)):
+        if not (self.data[START_SLICE] == self.data[END_SLICE] == BOOKEND):
+            # and (self.data[PAD_SLICE] == PADBYTES)):
             raise MalformedDataError("Invalid format")
 
         # data is stored by button, then bank
