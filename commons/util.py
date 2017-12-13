@@ -189,7 +189,7 @@ def pack_variable_length(value, limit=True):
 # This is one of those premature optimization things where it's probably not
 # worth it, but it was fun to write so it was worth it to ME, dammit.
 # now with bonus overkill!
-class lazy_readonly_property(property):
+class lazy_readonly_property(object):
     """
     Use as a decorator for methods in a class definition.
     the wrapped method is called the first time the property is accessed
@@ -197,7 +197,10 @@ class lazy_readonly_property(property):
     instance object as the key. Future accesses retrieve the stored value.
     """
     def __init__(self, fget, doc=None):
-        super().__init__(fget=fget, doc=doc)
+        if doc is None:
+            doc = fget.__doc__
+        self.__doc__ = doc
+        self.fget = fget
         self._values = weakref.WeakKeyDictionary()
 
     def __get__(self, obj, objtype=None):
@@ -209,6 +212,9 @@ class lazy_readonly_property(property):
             val = self.fget(obj)
             self._values[obj] = val
         return val
+
+    def __set__(self, obj, value):
+        raise AttributeError("cannot set attribute")
 
 
 # This is probably not the best way to do this.
