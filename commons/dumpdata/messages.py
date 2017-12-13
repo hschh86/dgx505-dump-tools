@@ -82,13 +82,13 @@ class DumpMessage(object):
                     raise MessageParsingError("Padding bytes not clear",
                                               message)
 
-    @lazy_readonly_property('_padded_payload')
+    @lazy_readonly_property
     def padded_payload(self):
         if self.raw_payload is None:
             return None
         return memoryview(reconstitute_all(self.raw_payload))
 
-    @lazy_readonly_property('_payload')
+    @lazy_readonly_property
     def payload(self):
         if self.padding_size:
             # trim off the padding bytes
@@ -166,7 +166,7 @@ class DumpSection(object):
         for dm in self.dm_list:
             yield dm.message
 
-    @lazy_readonly_property('_data')
+    @lazy_readonly_property
     def data(self):
         return memoryview(
                 b''.join(dm.payload for dm in self.dm_list if dm.payload))

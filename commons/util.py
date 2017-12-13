@@ -5,7 +5,7 @@ Utilities and helper functions that don't require mido
 
 """
 import sys
-import functools
+import weakref
 
 # SysEx Manufacturer ID
 YAMAHA = 0x43
@@ -187,62 +187,31 @@ def pack_variable_length(value, limit=True):
 
 # EXTREME laziness.
 # This is one of those premature optimization things where it's probably not
-# worth it, but it was fun to write so it was worth it to ME, dammit
-def lazy_readonly_property(in_name):
+# worth it, but it was fun to write so it was worth it to ME, dammit.
+# now with bonus overkill!
+class lazy_readonly_property(property):
     """
-    Use as a decorator for methods in a class definition, eg:
-    class Whatever(object):
-        @lazy_readonly_property('_a')
-        def my_property(self):
-            do something
-            return result
-    instance = Whatever()
-    instance.my_property == result
-    The first time that instance.my_property is accessed, the result is also
-    stored in instance._a; future accesses use this value instead of doing
-    something again.
-
-    in_name: the name of the attribute on instances to store in
+    Use as a decorator for methods in a class definition.
+    the wrapped method is called the first time the property is accessed
+    and then the value is stored in a weakref.WeakKeyDictionary with the
+    instance object as the key. Future accesses retrieve the stored value.
     """
-    def lazy_property_decorator(mtd):
-        @property
-        @functools.wraps(mtd)
-        def in_method(self, in_name=in_name):
-            try:
-                return getattr(self, in_name)
-            except AttributeError:
-                setattr(self, in_name, mtd(self))
-                return getattr(self, in_name)
-        return in_method
-    return lazy_property_decorator
-
-
-# Here's a descriptor class version, just for fun
-class LazyReadonlyPropertyDescriptor(object):
-    def __init__(self, in_name):
-        self.in_name = in_name
-
-    def __call__(self, mtd):
-        self.mtd = mtd
-        self.__doc__ = mtd.__doc__
-        return self
+    def __init__(self, fget, doc=None):
+        super().__init__(fget=fget, doc=doc)
+        self._values = weakref.WeakKeyDictionary()
 
     def __get__(self, obj, objtype=None):
         if obj is None:
             return self
         try:
-            return getattr(obj, self.in_name)
-        except AttributeError:
-            setattr(obj, self.in_name, self.mtd(obj))
-            return getattr(obj, self.in_name)
-
-    def __set__(self, obj, value):
-        raise AttributeError("can't set attribute")
-
-    def __delete__(self, obj):
-        raise AttributeError("can't delete attribute")
+            val = self._values[obj]
+        except KeyError:
+            val = self.fget(obj)
+            self._values[obj] = val
+        return val
 
 
+# This is probably not the best way to do this.
 def lazy_readonly_setup_property(in_name, setup_method, doc=None):
     """
     Use inside a class definition, eg:

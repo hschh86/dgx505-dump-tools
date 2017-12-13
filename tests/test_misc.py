@@ -2,7 +2,9 @@ import pytest
 
 from commons.util import (pack_seven, pack_variable_length,
                           unpack_variable_length, unpack_seven,
-                          reconstitute, reconstitute_all)
+                          reconstitute, reconstitute_all,
+                          lazy_readonly_property,
+                          lazy_readonly_setup_property)
 
 
 def test_seven():
@@ -72,3 +74,66 @@ def test_vl():
     for a in [-1, 2**28]:
         with pytest.raises(ValueError):
             pack_variable_length(a)
+
+
+class SomeObject(object):
+    pass
+
+
+def test_lazy_readonly_property():
+
+    class MyClass(object):
+        def __init__(self):
+            self.counter = 0
+
+        @property
+        def unlazy_prop(self):
+            self.counter += 1
+            return SomeObject()
+
+        @lazy_readonly_property
+        def lazy_prop(self):
+            """somestring"""
+            self.counter += 1
+            return SomeObject()
+
+    inst1 = MyClass()
+    assert inst1.counter == 0
+    assert inst1.unlazy_prop is not inst1.unlazy_prop
+    assert inst1.counter == 2
+    assert inst1.lazy_prop is inst1.lazy_prop
+    assert inst1.counter == 3
+    with pytest.raises(AttributeError):
+        inst1.lazy_prop = None
+    inst2 = MyClass()
+    assert inst1.lazy_prop is not inst2.lazy_prop
+    assert MyClass.lazy_prop.__doc__ == "somestring"
+
+
+def test_lazy_readonly_setup_property():
+    class MyClass(object):
+        def __init__(self):
+            self.counter = 0
+
+        def _setup(self):
+            self._salt = SomeObject()
+            self._vinegar = SomeObject()
+            self.counter += 1
+
+        salt = lazy_readonly_setup_property('_salt', _setup, "salt")
+        vinegar = lazy_readonly_setup_property('_vinegar', _setup, "vinegar")
+
+    inst1 = MyClass()
+    assert inst1.counter == 0
+    assert inst1.salt is inst1.salt
+    assert inst1.vinegar is inst1.vinegar
+    assert inst1.counter == 1
+
+    inst2 = MyClass()
+    assert inst2.counter == 0
+    assert inst2.vinegar is inst2.vinegar
+    assert inst2.salt is inst2.salt
+    assert inst2.counter == 1
+
+    assert MyClass.salt.__doc__ == "salt"
+    assert MyClass.vinegar.__doc__ == "vinegar"

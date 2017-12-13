@@ -15,7 +15,7 @@ class SongDumpSection(DumpSection):
     EXPECTED_COUNT = 39
     EXPECTED_RUN = 76904
 
-    @lazy_readonly_property('_songs')
+    @lazy_readonly_property
     def songs(self):
         return SongData(self.data)
 
@@ -233,7 +233,7 @@ class UserSong(object):
         for track in self._datatracks:
             yield from track.blocks
 
-    @lazy_readonly_property('_smf')
+    @lazy_readonly_property
     def midi(self):
         """The MIDI file, as bytes."""
         return b''.join(self._midi_blocks_iter())
