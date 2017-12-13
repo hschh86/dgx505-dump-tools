@@ -1,7 +1,7 @@
 import collections
 import struct
 
-from ..util import slicebyn
+from ..util import slicebyn, lazy_readonly_property
 from ..exceptions import MalformedDataError
 from .messages import DumpSection
 
@@ -15,53 +15,64 @@ class RegDumpSection(DumpSection):
     EXPECTED_COUNT = 2
     EXPECTED_RUN = 816
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    @lazy_readonly_property
+    def settings(self):
+        return RegData(self.data)
 
-        START_SLICE = slice(0x000, 0x004)
-        SETTINGS_SLICE = slice(0x004, 0x2C4)
-        END_SLICE = slice(0x2C4, 0x2C8)
-        # PAD_SLICE = slice(0x2C8, None)
+    def _cereal(self):
+        return self.settings._cereal()
 
-        # EXPECTED_SIZE = 0x2CA
-        EXPECTED_SIZE = 0x2C8
-        SETTING_SIZE = 0x2C
 
-        BOOKEND = b'PSR\x03'
-        # PADBYTES = b'\x00\x00'
+# you can't stop me
+class RegData(object):
 
-        # message format checks
-        if len(self.data) != EXPECTED_SIZE:
+    START_SLICE = slice(0x000, 0x004)
+    SETTINGS_SLICE = slice(0x004, 0x2C4)
+    END_SLICE = slice(0x2C4, 0x2C8)
+
+    EXPECTED_SIZE = 0x2C8
+    SETTING_SIZE = 0x2C
+
+    BOOKEND = b'PSR\x03'
+
+    def _message_format_checks(self):
+        if len(self.data) != self.EXPECTED_SIZE:
             raise MalformedDataError("Data wrong length!")
-        if not (self.data[START_SLICE] == self.data[END_SLICE] == BOOKEND):
-            # and (self.data[PAD_SLICE] == PADBYTES)):
+        if not (self.data[self.START_SLICE]
+                == self.data[self.END_SLICE] == self.BOOKEND):
             raise MalformedDataError("Invalid format")
+
+    def __init__(self, data):
+
+        self.data = data
+        self._message_format_checks()
 
         # data is stored by button, then bank
         # (i.e. all the settings for a button are together)
         button_list = []
-        button_sections = slicebyn(self.data[SETTINGS_SLICE], SETTING_SIZE*8)
+        button_sections = slicebyn(self.data[self.SETTINGS_SLICE],
+                                   self.SETTING_SIZE*8)
         for button_num, button_section in zip(range(1, 2+1), button_sections):
             bank_list = []
-            set_sections = slicebyn(button_section, SETTING_SIZE)
+            set_sections = slicebyn(button_section, self.SETTING_SIZE)
             for bank_num, set_section in zip(range(1, 8+1), set_sections):
                 reg = RegSetting(bank_num, button_num, set_section)
                 bank_list.append(reg)
             button_list.append(bank_list)
         # it's more convenient to store and display as bank, then button
-        self.settings = tuple(zip(*button_list))
+        self._settings = tuple(zip(*button_list))
 
-    def get_settings(self, bank, button):
+    def get_setting(self, bank, button):
         """Get the RegSetting object corresponding to the bank and button"""
         if not 1 <= button <= 2:
             raise ValueError("Invalid button: {}".format(button))
         if not 1 <= bank <= 8:
             raise ValueError("Invalid bank: {}".format(button))
-        return self.settings[bank-1][button-1]
+        return self._settings[bank-1][button-1]
 
     def __iter__(self):
         """Iterate through settings, grouped by bank then button"""
-        for bank in self.settings:
+        for bank in self._settings:
             yield from bank
 
     def _cereal(self):
