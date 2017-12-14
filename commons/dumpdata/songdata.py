@@ -23,7 +23,7 @@ class SongDumpSection(DumpSection):
         return self.songs._cereal()
 
 
-class SongData(collections.abc.Sequence):
+class SongData(object):
 
     SONGS_OFFSET = 0x00
     MYSTERY_SLICE = slice(0x01, 0x15D)
@@ -87,8 +87,11 @@ class SongData(collections.abc.Sequence):
         Get the UserSong object.
         Note that we use zero based indexing, so UserSong1 corresponds to [0]
         and so on.
-        Negative indices not supported, because why would you need that.
+        Negative indices and slices not supported,
+        because why would you need that.
         """
+        if isinstance(key, slice):
+            raise TypeError("slices not supported")
         if self._songs[key] is None:
             self._songs[key] = UserSong(
                 self._block_system, key+1,
@@ -97,9 +100,17 @@ class SongData(collections.abc.Sequence):
                 self._track_beginning_blocks[key])
         return self._songs[key]
 
+    def get_song(self, number):
+        if not (1 <= number <= 5):
+            raise ValueError("song number out of range")
+        return self[number-1]
+
     def __len__(self, key):
         return len(self._songs)  # 5
-    # The abstract base class Sequence takes care of the rest.
+
+    def __iter__(self):
+        for x in range(5):
+            yield self[x]
 
     # cereal!
     def _cereal(self):

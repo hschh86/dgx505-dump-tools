@@ -6,6 +6,7 @@ Utilities and helper functions that don't require mido
 """
 import sys
 import weakref
+import itertools
 
 # SysEx Manufacturer ID
 YAMAHA = 0x43
@@ -245,3 +246,26 @@ def lazy_readonly_setup_property(in_name, setup_method, doc=None):
             setup_method(self)
             return getattr(self, in_name)
     return property(fget, doc=doc)
+
+
+def iter_pairs(itr):
+    """
+    Iterator over each consecutive pair of items in itr:
+    s -> (s0, s1), (s1, s2), (s2, s3), ...
+    """
+    # pairwise recipe from python documentation
+    a, b = itertools.tee(itr)
+    next(b, None)
+    return zip(a, b)
+
+
+def cumulative_slices(itr_sizes, start=0):
+    """
+    Yields slices of lengths from the iterator, starting at start.
+    s -> slice(start, start+s0), slice(start+s0, start+s0+s1), ...
+    no negative values, please, you may get unexpected results
+    """
+    # iterator of cumulative size sums
+    seq = itertools.chain([start], itr_sizes)
+    indices = itertools.accumulate(seq)
+    return (slice(*x) for x in iter_pairs(indices))

@@ -4,7 +4,8 @@ from commons.util import (pack_seven, pack_variable_length,
                           unpack_variable_length, unpack_seven,
                           reconstitute, reconstitute_all,
                           lazy_readonly_property,
-                          lazy_readonly_setup_property)
+                          lazy_readonly_setup_property,
+                          cumulative_slices)
 
 
 def test_seven():
@@ -137,3 +138,12 @@ def test_lazy_readonly_setup_property():
 
     assert MyClass.salt.__doc__ == "salt"
     assert MyClass.vinegar.__doc__ == "vinegar"
+
+
+def test_cumulative_slices():
+    test_string = "01234567890123456789"
+    lengths = [4, 3, 2, 7, 1, 0, 5]
+    substrs = ["1234", "567", "89", "0123456", "7", "", "89"]
+    slices = cumulative_slices(lengths, 1)
+    for substr, tslice in zip(substrs, slices):
+        assert substr == test_string[tslice]
