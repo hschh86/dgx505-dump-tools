@@ -8,7 +8,7 @@ from .messages import DumpSection
 
 class SongDumpSection(DumpSection):
     """
-    Container for all the useful data in a song section of a bulk dump
+    Container for the song section of a bulk dump
     """
     SECTION_BYTE = 0x0A
     SECTION_NAME = "Song data"
@@ -24,7 +24,9 @@ class SongDumpSection(DumpSection):
 
 
 class SongData(object):
-
+    """
+    Container for all the useful data in a song section of a bulk dump
+    """
     SONGS_OFFSET = 0x00
     MYSTERY_SLICE = slice(0x01, 0x15D)
     TRACKS_SLICE = slice(0x15D, 0x167)

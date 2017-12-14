@@ -7,6 +7,7 @@ Utilities and helper functions that don't require mido
 import sys
 import weakref
 import itertools
+import collections
 
 # SysEx Manufacturer ID
 YAMAHA = 0x43
@@ -192,7 +193,7 @@ def pack_variable_length(value, limit=True):
 # now with bonus overkill!
 class lazy_readonly_property(object):
     """
-    Use as a decorator for methods in a class definition.
+    Use as a decorator for methods in a class definition (hashable only).
     the wrapped method is called the first time the property is accessed
     and then the value is stored in a weakref.WeakKeyDictionary with the
     instance object as the key. Future accesses retrieve the stored value.
@@ -269,3 +270,35 @@ def cumulative_slices(itr_sizes, start=0):
     seq = itertools.chain([start], itr_sizes)
     indices = itertools.accumulate(seq)
     return (slice(*x) for x in iter_pairs(indices))
+
+
+# EXTREME LAZINESS CONTINUED
+class LazySequence(collections.abc.Sequence):
+    __slots__ = ('_itemfunc', '_length', '_list')
+
+    def __init__(self, length, itemfunc):
+        self._itemfunc = itemfunc
+        self._length = length
+        self._list = [None]*length
+
+    def __len__(self):
+        return self._length
+
+    def _get_item(self, idx):
+        item = self._list[idx]
+        if item is None:
+            item = self._itemfunc(idx)
+            self._list[idx] = item
+        return item
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            ixs = range(*key.indices(self._length))
+            return [self._get_item(idx) for idx in ixs]
+        else:
+            idx = key.__index__()
+            if idx < 0:
+                idx += self._length
+                if idx < 0:
+                    raise IndexError("index out of range")
+            return self._get_item(idx)

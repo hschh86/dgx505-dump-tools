@@ -5,7 +5,9 @@ from commons.util import (pack_seven, pack_variable_length,
                           reconstitute, reconstitute_all,
                           lazy_readonly_property,
                           lazy_readonly_setup_property,
-                          cumulative_slices)
+                          cumulative_slices,
+                          LazySequence
+                          )
 
 
 def test_seven():
@@ -147,3 +149,22 @@ def test_cumulative_slices():
     slices = cumulative_slices(lengths, 1)
     for substr, tslice in zip(substrs, slices):
         assert substr == test_string[tslice]
+
+
+def test_lazy_sequence():
+    counter = 0
+
+    def func(n):
+        nonlocal counter
+        counter += 1
+        return n+1
+
+    seq = LazySequence(5, func)
+    assert counter == 0
+    assert seq._list[3] is None
+    assert seq[3] == 4
+    assert seq._list[3] == 4
+    assert seq[3] == 4
+    assert counter == 1
+    assert seq.index(5) == 4
+    assert counter > 1

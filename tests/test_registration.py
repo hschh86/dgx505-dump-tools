@@ -17,6 +17,6 @@ def test_reg(datafile, valuefile):
     with open(valuefile, 'r') as vfile:
         sets = json.load(vfile)
     dset = dobj.get_setting(4, 2)
-    assert len(dset.unusual) == 0
+    assert dset.unusual_len() == 0
     for key, value in sets.items():
         assert dset[key].vstr == value
