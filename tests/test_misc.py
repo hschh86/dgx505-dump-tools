@@ -4,6 +4,7 @@ from commons.util import (pack_seven, pack_variable_length,
                           unpack_variable_length, unpack_seven,
                           reconstitute, reconstitute_all,
                           lazy_readonly_property,
+                          lazy_property,
                           lazy_readonly_setup_property,
                           cumulative_slices,
                           LazySequence
@@ -108,6 +109,34 @@ def test_lazy_readonly_property():
     assert inst1.counter == 3
     with pytest.raises(AttributeError):
         inst1.lazy_prop = None
+    inst2 = MyClass()
+    assert inst1.lazy_prop is not inst2.lazy_prop
+    assert MyClass.lazy_prop.__doc__ == "somestring"
+
+
+def test_lazy_property():
+
+    class MyClass(object):
+        def __init__(self):
+            self.counter = 0
+
+        @property
+        def unlazy_prop(self):
+            self.counter += 1
+            return SomeObject()
+
+        @lazy_property
+        def lazy_prop(self):
+            """somestring"""
+            self.counter += 1
+            return SomeObject()
+
+    inst1 = MyClass()
+    assert inst1.counter == 0
+    assert inst1.unlazy_prop is not inst1.unlazy_prop
+    assert inst1.counter == 2
+    assert inst1.lazy_prop is inst1.lazy_prop
+    assert inst1.counter == 3
     inst2 = MyClass()
     assert inst1.lazy_prop is not inst2.lazy_prop
     assert MyClass.lazy_prop.__doc__ == "somestring"

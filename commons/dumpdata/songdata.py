@@ -1,7 +1,7 @@
 import collections
 import struct
 
-from ..util import slicebyn, boolean_bitarray_tuple, lazy_readonly_property
+from ..util import slicebyn, boolean_bitarray_tuple, lazy_property
 from ..exceptions import MalformedDataError, NotRecordedError
 from .messages import DumpSection
 
@@ -15,7 +15,7 @@ class SongDumpSection(DumpSection):
     EXPECTED_COUNT = 39
     EXPECTED_RUN = 76904
 
-    @lazy_readonly_property
+    @lazy_property
     def songs(self):
         return SongData(self.data)
 
@@ -246,7 +246,7 @@ class UserSong(object):
         for track in self._datatracks:
             yield from track.blocks
 
-    @lazy_readonly_property
+    @lazy_property
     def midi(self):
         """The MIDI file, as bytes."""
         return b''.join(self._midi_blocks_iter())

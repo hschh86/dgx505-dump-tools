@@ -187,6 +187,28 @@ def pack_variable_length(value, limit=True):
     return bytes(reversed(dest))
 
 
+# Keep It Simple, Stupid.
+class lazy_property(object):
+    """
+    AKA reify, cached_property, etc.
+    Saves the cached value on the instance attribute.
+    Doesn't care about readonlyness, an instance can override to whatever
+    they want it to (it's a non-data descriptor)
+    """
+    def __init__(self, fget):
+        self.fget = fget
+        self.name = fget.__name__
+        self.__doc__ = fget.__doc__
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        val = self.fget(obj)
+        # Pyramid's reify uses setattr, cached_property uses __dict__...
+        setattr(obj, self.name, val)
+        return val
+
+
 # EXTREME laziness.
 # This is one of those premature optimization things where it's probably not
 # worth it, but it was fun to write so it was worth it to ME, dammit.

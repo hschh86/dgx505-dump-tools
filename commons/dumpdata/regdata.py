@@ -1,6 +1,6 @@
 import collections
 
-from ..util import lazy_readonly_property
+from ..util import lazy_property
 from ..exceptions import MalformedDataError
 from .messages import DumpSection
 from .regvalues import (DATA_NAMES, DATA_SLICE_DICT, DATA_STRUCT_DICT,
@@ -16,7 +16,7 @@ class RegDumpSection(DumpSection):
     EXPECTED_COUNT = 2
     EXPECTED_RUN = 816
 
-    @lazy_readonly_property
+    @lazy_property
     def settings(self):
         return RegData(self.data)
 
