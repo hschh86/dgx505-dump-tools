@@ -1,6 +1,6 @@
 import collections
 
-from ..util import lazy_property
+from ..util import lazy_property, CachedSequence
 from ..exceptions import MalformedDataError
 from .messages import DumpSection
 from .regvalues import (DATA_NAMES, DATA_SLICE_DICT, DATA_STRUCT_DICT,
@@ -50,40 +50,44 @@ class RegData(object):
 
         self.data = data
         self._message_format_checks()
-        self._setting_data = data[self.SETTINGS_SLICE]
 
-        self._settings = [None] * 16
+        # more absolute silliness for no real gain
 
-    @staticmethod
-    def _bankbtn_to_idx(bank, button):
-        # data is stored by button, then bank
+        def make_bank(idx, s=self.SETTING_SIZE, d=data[self.SETTINGS_SLICE]):
+            return RegBank(idx+1, (d[idx*s:(idx+1)*s], d[(idx+8)*s:(idx+9)*s]))
+
+        self._settings = CachedSequence(8, make_bank)
+
+    def get_setting(self, bank, button):
+        """Get the RegSetting object corresponding to the bank and button"""
+        # data is stored by button, then banks
         # (i.e. all the settings for a button are together)
         # but it's more convenient to get and display as bank, then button
         if not 1 <= button <= 2:
             raise ValueError("Invalid button: {}".format(button))
         if not 1 <= bank <= 8:
             raise ValueError("Invalid bank: {}".format(button))
-        return (button-1)*8 + (bank-1)
-
-    def get_setting(self, bank, button):
-        """Get the RegSetting object corresponding to the bank and button"""
-        idx = self._bankbtn_to_idx(bank, button)
-        reg = self._settings[idx]
-        if reg is None:
-            slc = slice(idx*self.SETTING_SIZE, (idx+1)*self.SETTING_SIZE)
-            set_section = self._setting_data[slc]
-            reg = RegSetting(bank, button, set_section)
-            self._settings[idx] = reg
-        return reg
+        return self._settings[bank-1][button-1]
 
     def __iter__(self):
         """Iterate through settings, grouped by bank then button"""
-        for bank in range(1, 8+1):
-            for button in range(1, 2+1):
-                yield self.get_setting(bank, button)
+        for bank in self._settings:
+            yield from bank
 
     def _cereal(self):
         return [setting._cereal() for setting in self]
+
+
+class RegBank(CachedSequence):
+    __slots__ = ('bank')
+
+    def __init__(self, bank, setting_data):
+        self.bank = bank
+
+        def make_setting(idx, bank=bank, setting_data=setting_data):
+            return RegSetting(bank, idx+1, setting_data[idx])
+
+        CachedSequence.__init__(self, len(setting_data), make_setting)
 
 
 SettingValue = collections.namedtuple("SettingValue",

@@ -295,7 +295,7 @@ def cumulative_slices(itr_sizes, start=0):
 
 
 # EXTREME LAZINESS CONTINUED
-class LazySequence(collections.abc.Sequence):
+class CachedSequence(collections.abc.Sequence):
     __slots__ = ('_itemfunc', '_length', '_list')
 
     def __init__(self, length, itemfunc):
@@ -306,7 +306,8 @@ class LazySequence(collections.abc.Sequence):
     def __len__(self):
         return self._length
 
-    def _get_item(self, idx):
+    # I think name mangling is meant for this kind of thing
+    def __get_item(self, idx):
         item = self._list[idx]
         if item is None:
             item = self._itemfunc(idx)
@@ -316,11 +317,12 @@ class LazySequence(collections.abc.Sequence):
     def __getitem__(self, key):
         if isinstance(key, slice):
             ixs = range(*key.indices(self._length))
-            return [self._get_item(idx) for idx in ixs]
+            # returns a list, but who cares really
+            return [self.__get_item(idx) for idx in ixs]
         else:
             idx = key.__index__()
             if idx < 0:
                 idx += self._length
                 if idx < 0:
                     raise IndexError("index out of range")
-            return self._get_item(idx)
+            return self.__get_item(idx)

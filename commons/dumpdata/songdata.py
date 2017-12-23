@@ -1,7 +1,8 @@
 import collections
 import struct
 
-from ..util import slicebyn, boolean_bitarray_tuple, lazy_property
+from ..util import (slicebyn, boolean_bitarray_tuple, lazy_property,
+                    CachedSequence)
 from ..exceptions import MalformedDataError, NotRecordedError
 from .messages import DumpSection
 
@@ -65,41 +66,41 @@ class SongData(object):
         self.data = data
         self._message_format_checks()
 
-        # song data
-        self._song_field = boolean_bitarray_tuple(data[self.SONGS_OFFSET], 5)
-        self._track_fields = [boolean_bitarray_tuple(x, 6)
-                              for x in data[self.TRACKS_SLICE]]
-        self._song_durations = struct.unpack('>5I',
-                                             data[self.SONG_DURATION_SLICE])
-        self._track_durations = list(slicebyn(
-            struct.unpack('>30I', data[self.TRACK_DURATION_SLICE]), 6))
-
-        self._track_beginning_blocks = list(slicebyn(
-            data[self.BEGINNING_BLOCKS_SLICE], 6))
+        self._mystery = self.data[self.MYSTERY_SLICE]
 
         self._block_system = SongDataBlockSystem(
             data[self.NEXT_BLOCKS_SLICE], data[self.BLOCK_DATA_SLICE])
 
-        self._mystery = self.data[self.MYSTERY_SLICE]
+        def make_song(idx,
+                      block_system=self._block_system,
+                      song_field=boolean_bitarray_tuple(
+                          data[self.SONGS_OFFSET], 5),
+                      song_durations=struct.unpack(
+                          '>5I', data[self.SONG_DURATION_SLICE]),
+                      track_fields=[boolean_bitarray_tuple(x, 6)
+                                    for x in data[self.TRACKS_SLICE]],
+                      track_durations=list(slicebyn(struct.unpack(
+                          '>30I', data[self.TRACK_DURATION_SLICE]), 6)),
+                      track_beginning_blocks=list(slicebyn(
+                          data[self.BEGINNING_BLOCKS_SLICE], 6))):
+            """
+            Create UserSong object. Note that we use zero based indexing, so
+            UserSong1 corresponds to [0] and so on.
+            """
+            return UserSong(
+                block_system, idx+1,
+                song_field[idx], song_durations[idx],
+                track_fields[idx], track_durations[idx],
+                track_beginning_blocks[idx])
 
-        self._songs = [None] * 5
+        self._songs = CachedSequence(5, make_song)
 
     def __getitem__(self, key):
         """
         Get the UserSong object.
         Note that we use zero based indexing, so UserSong1 corresponds to [0]
         and so on.
-        Negative indices and slices not supported,
-        because why would you need that.
         """
-        if isinstance(key, slice):
-            raise TypeError("slices not supported")
-        if self._songs[key] is None:
-            self._songs[key] = UserSong(
-                self._block_system, key+1,
-                self._song_field[key], self._song_durations[key],
-                self._track_fields[key], self._track_durations[key],
-                self._track_beginning_blocks[key])
         return self._songs[key]
 
     def get_song(self, number):
@@ -111,8 +112,7 @@ class SongData(object):
         return len(self._songs)  # 5
 
     def __iter__(self):
-        for x in range(5):
-            yield self[x]
+        return iter(self._songs)
 
     # cereal!
     def _cereal(self):

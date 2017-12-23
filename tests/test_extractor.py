@@ -50,3 +50,13 @@ def test_midi(ffab, ffcd):
     with open('test_data/UserSong2.mid', 'rb') as u2m:
         us2 = u2m.read()
     assert us2 == ffcd[1].song_data.songs[1].midi
+
+
+def test_sequences(ffab):
+    songs = ffab[0].song_data.songs
+    assert songs[-1] is songs[4]
+    with pytest.raises(IndexError):
+        songs[-6]
+    with pytest.raises(IndexError):
+        songs[5]
+    assert songs[1:4:2] == [songs[1], songs[3]]

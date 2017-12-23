@@ -7,7 +7,7 @@ from commons.util import (pack_seven, pack_variable_length,
                           lazy_property,
                           lazy_readonly_setup_property,
                           cumulative_slices,
-                          LazySequence
+                          CachedSequence
                           )
 
 
@@ -188,7 +188,7 @@ def test_lazy_sequence():
         counter += 1
         return n+1
 
-    seq = LazySequence(5, func)
+    seq = CachedSequence(5, func)
     assert counter == 0
     assert seq._list[3] is None
     assert seq[3] == 4
