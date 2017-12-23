@@ -25,10 +25,11 @@ class RegDumpSection(DumpSection):
 
 
 # you can't stop me
-class RegData(object):
+class RegData(CachedSequence):
     """
     Container for the useful data in a reg section
     """
+    __slots__ = ('data')
 
     START_SLICE = slice(0x000, 0x004)
     SETTINGS_SLICE = slice(0x004, 0x2C4)
@@ -56,7 +57,7 @@ class RegData(object):
         def make_bank(idx, s=self.SETTING_SIZE, d=data[self.SETTINGS_SLICE]):
             return RegBank(idx+1, (d[idx*s:(idx+1)*s], d[(idx+8)*s:(idx+9)*s]))
 
-        self._settings = CachedSequence(8, make_bank)
+        super().__init__(8, make_bank)
 
     def get_setting(self, bank, button):
         """Get the RegSetting object corresponding to the bank and button"""
@@ -67,15 +68,15 @@ class RegData(object):
             raise ValueError("Invalid button: {}".format(button))
         if not 1 <= bank <= 8:
             raise ValueError("Invalid bank: {}".format(button))
-        return self._settings[bank-1][button-1]
+        return self[bank-1][button-1]
 
-    def __iter__(self):
+    def iter_settings(self):
         """Iterate through settings, grouped by bank then button"""
-        for bank in self._settings:
+        for bank in self:
             yield from bank
 
     def _cereal(self):
-        return [setting._cereal() for setting in self]
+        return [setting._cereal() for setting in self.iter_settings()]
 
 
 class RegBank(CachedSequence):
@@ -87,7 +88,7 @@ class RegBank(CachedSequence):
         def make_setting(idx, bank=bank, setting_data=setting_data):
             return RegSetting(bank, idx+1, setting_data[idx])
 
-        CachedSequence.__init__(self, len(setting_data), make_setting)
+        super().__init__(len(setting_data), make_setting)
 
 
 SettingValue = collections.namedtuple("SettingValue",

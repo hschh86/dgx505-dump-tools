@@ -24,10 +24,12 @@ class SongDumpSection(DumpSection):
         return self.songs._cereal()
 
 
-class SongData(object):
+class SongData(CachedSequence):
     """
     Container for all the useful data in a song section of a bulk dump
     """
+    __slots__ = ('data', '_mystery', '_block_system')
+
     SONGS_OFFSET = 0x00
     MYSTERY_SLICE = slice(0x01, 0x15D)
     TRACKS_SLICE = slice(0x15D, 0x167)
@@ -93,26 +95,20 @@ class SongData(object):
                 track_fields[idx], track_durations[idx],
                 track_beginning_blocks[idx])
 
-        self._songs = CachedSequence(5, make_song)
+        super().__init__(5, make_song)
 
-    def __getitem__(self, key):
-        """
-        Get the UserSong object.
-        Note that we use zero based indexing, so UserSong1 corresponds to [0]
-        and so on.
-        """
-        return self._songs[key]
+    # def __getitem__(self, key):
+    #     """
+    #     Get the UserSong object.
+    #     Note that we use zero based indexing, so UserSong1 corresponds to [0]
+    #     and so on.
+    #     """
+    #     return self[key]
 
     def get_song(self, number):
         if not (1 <= number <= 5):
             raise ValueError("song number out of range")
         return self[number-1]
-
-    def __len__(self, key):
-        return len(self._songs)  # 5
-
-    def __iter__(self):
-        return iter(self._songs)
 
     # cereal!
     def _cereal(self):
