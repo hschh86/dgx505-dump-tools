@@ -95,7 +95,14 @@ SettingValue = collections.namedtuple("SettingValue",
                                       "prop value vstr bytes unusual")
 
 
-class RegSetting(object):
+class RegSetting(collections.abc.Mapping):
+    """
+    Actual object that represents a registration memory setting
+    Implements the Mapping abc.
+    keys are the strings in regvalues.DATA_NAMES, which
+    are supposed to be the names in the function menu
+    Values are a namedtuple, with string representation in the vstr attribute
+    """
 
     def __init__(self, bank, button, data):
 
@@ -138,6 +145,12 @@ class RegSetting(object):
     def __getitem__(self, key):
         return self._dict[key]
 
+    def __iter__(self):
+        return iter(self._dict)
+
+    def __len__(self):
+        return len(self._dict)
+
     def print_settings(self):
         print("Bank {}, Button {}:".format(self.bank, self.button))
         for key, sval in self.iter_display_order_items():
@@ -149,6 +162,13 @@ class RegSetting(object):
             print(" {:>18}: {:>3}".format(sval.prop, sval.vstr))
 
     def iter_display_order_items(self):
+        """
+        Iterator over the items, in DISPLAY_ORDER instead of storage order.
+        This one is useful for printing out, because this order tries to
+        match the order in the function menu / front panel screen.
+        This doesn't iterate over all the keys, though as it excludes
+        padding and the duplicate split point.
+        """
         for key in DISPLAY_ORDER:
             yield (key, self._dict[key])
 
@@ -157,15 +177,6 @@ class RegSetting(object):
 
     def unusual_iter(self):
         return iter(self._unusual)
-
-    def __iter__(self):
-        return iter(DATA_NAMES)
-
-    def __len__(self):
-        return len(DATA_NAMES)
-
-    def __contains__(self, item):
-        return item in DATA_NAMES
 
     # cereal
     def _cereal(self):
