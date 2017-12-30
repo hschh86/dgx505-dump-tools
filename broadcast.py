@@ -9,7 +9,7 @@ import time
 import argparse
 import operator
 
-from commons import mido_util
+from commons import util, mido_util
 
 argparser = argparse.ArgumentParser(
     description="Dumps contents of a text mido message stream file "
@@ -66,29 +66,24 @@ else:
 
 # compute the deltas.
 delta_message_tuples = []
-mitr = iter(msgs)
-last = next(mitr)
+msg = msgs[0]
+if args.nowait or args.ignoretime:
+    wait = 0
+else:
+    wait = msg.time/args.speedup
+delta_message_tuples.append((wait, msg))
 if args.ignoretime:
-    delta_message_tuples.append((0, last))
-    for msg in mitr:
+    for last, msg in util.iter_pairs(msgs):
         wait = len(last)*bytewait
         delta_message_tuples.append((wait, msg))
-        last = msg
 else:
-    if args.nowait:
-        wait = 0
-    else:
-        wait = last.time/args.speedup
-    delta_message_tuples.append((wait, last))
-    for msg in mitr:
+    for last, msg in util.iter_pairs(msgs):
         # just completely ignore the bytewait?
         wait = (msg.time - last.time)/args.speedup
         delta_message_tuples.append((wait, msg))
-        last = msg
-
 
 with mido_util.open_output(
-        args.port, args.guessport, args.virtual) as outport:
+        args.port, args.guessport, args.virtual, autoreset=True) as outport:
     print("writing to port", outport.name)
     if args.prompt:
         input("Press enter to start")

@@ -19,6 +19,12 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
+# dummy
+def nop(*args, **kwargs):
+    """Does nothing."""
+    pass
+
+
 # slicing and iteration
 def slicebyn(obj, n, end=None):
     """

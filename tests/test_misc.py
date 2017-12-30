@@ -7,6 +7,7 @@ from commons.util import (pack_seven, pack_variable_length,
                           lazy_property,
                           lazy_readonly_setup_property,
                           cumulative_slices,
+                          iter_pairs,
                           CachedSequence
                           )
 
@@ -178,6 +179,14 @@ def test_cumulative_slices():
     slices = cumulative_slices(lengths, 1)
     for substr, tslice in zip(substrs, slices):
         assert substr == test_string[tslice]
+
+
+def test_pairs():
+    assert list(iter_pairs("12345")) == [
+        ("1", "2"), ("2", "3"), ("3", "4"), ("4", "5")]
+    assert list(iter_pairs("12")) == [("1", "2")]
+    assert list(iter_pairs("1")) == []
+    assert list(iter_pairs("")) == []
 
 
 def test_lazy_sequence():
