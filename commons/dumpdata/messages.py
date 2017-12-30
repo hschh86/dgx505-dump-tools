@@ -102,7 +102,7 @@ class DumpSection(object):
     EXPECTED_COUNT = None
     EXPECTED_RUN = None
 
-    def __init__(self, message_seq, verbose=False):
+    def __init__(self, message_seq, verbose=False, header=None):
         """
         Verifies that all the sizes and running total match and everything.
         MessageParsingError raised if the messages don't match.
@@ -122,6 +122,11 @@ class DumpSection(object):
         except StopIteration:
             raise MessageSequenceError("Section empty")
 
+        # header. We want this to be the same for all messages.
+        if header is None:
+            self.header = dm.header
+
+        # section byte. If section byte not provided use the first.
         if self.SECTION_BYTE is None:
             self.SECTION_BYTE = dm.section
         if self.SECTION_NAME is None:
@@ -136,6 +141,8 @@ class DumpSection(object):
             eprint("Section: {}".format(self.SECTION_NAME))
 
         while not dm.end:
+            if dm.header != self.header:
+                raise MessageSequenceError("Header mismatch")
             if dm.section != self.SECTION_BYTE:
                 raise MessageSequenceError("Section mismatch")
             if dm.run != run:
