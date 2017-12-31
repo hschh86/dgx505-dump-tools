@@ -1,27 +1,9 @@
 import collections
 
-from ..util import lazy_property, CachedSequence
+from ..util import CachedSequence
 from ..exceptions import MalformedDataError
-from .messages import DumpSection
 from .regvalues import (DATA_NAMES, DATA_SLICE_DICT, DATA_STRUCT_DICT,
                         DATA_MAP_DICT, DISPLAY_ORDER)
-
-
-class RegDumpSection(DumpSection):
-    """
-    The reg section of the dump
-    """
-    SECTION_BYTE = 0x09
-    SECTION_NAME = "Registration data"
-    EXPECTED_COUNT = 2
-    EXPECTED_RUN = 816
-
-    @lazy_property
-    def settings(self):
-        return RegData(self.data)
-
-    def _cereal(self):
-        return self.settings._cereal()
 
 
 # you can't stop me

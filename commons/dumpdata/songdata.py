@@ -4,24 +4,6 @@ import struct
 from ..util import (slicebyn, boolean_bitarray_tuple, lazy_property,
                     CachedSequence)
 from ..exceptions import MalformedDataError, NotRecordedError
-from .messages import DumpSection
-
-
-class SongDumpSection(DumpSection):
-    """
-    Container for the song section of a bulk dump
-    """
-    SECTION_BYTE = 0x0A
-    SECTION_NAME = "Song data"
-    EXPECTED_COUNT = 39
-    EXPECTED_RUN = 76904
-
-    @lazy_property
-    def songs(self):
-        return SongData(self.data)
-
-    def _cereal(self):
-        return self.songs._cereal()
 
 
 class SongData(CachedSequence):

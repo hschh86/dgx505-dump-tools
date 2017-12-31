@@ -22,14 +22,14 @@ def _read_dump_from_filename(filename, verbose=False, songonly=False):
         messages = read_syx_file(infile)
     if verbose:
         eprint("All messages read from file")
-    return DgxDump(messages, verbose, songonly)
+    return DgxDump(messages, verbose, reg=not songonly)
 
 
 def _read_dump_from_portname(portname, verbose=False, songonly=False):
     with mido.open_input(portname) as inport:
         if verbose:
             eprint("Listening to port {!r}".format(inport.name))
-        dump = DgxDump(inport, verbose, songonly)
+        dump = DgxDump(inport, verbose, reg=not songonly)
         if verbose:
             eprint("All messages read from port")
     return dump

@@ -2,7 +2,7 @@ import pytest
 import json
 
 from commons.mido_util import read_syx_file
-from commons.dumpdata.regdata import RegDumpSection
+from commons.dumpdata.messages import RegDumpSection
 
 
 @pytest.mark.parametrize("datafile, valuefile", [

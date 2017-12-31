@@ -2,6 +2,8 @@ from ..exceptions import MessageParsingError, MessageSequenceError
 from ..util import (YAMAHA, eprint,
                     unpack_seven, reconstitute_all, not_none_get,
                     lazy_property)
+from .songdata import SongData
+from .regdata import RegData
 
 
 class DumpMessage(object):
@@ -177,3 +179,37 @@ class DumpSection(object):
     def data(self):
         return memoryview(
                 b''.join(dm.payload for dm in self.dm_list if dm.payload))
+
+
+class SongDumpSection(DumpSection):
+    """
+    Container for the song section of a bulk dump
+    """
+    SECTION_BYTE = 0x0A
+    SECTION_NAME = "Song data"
+    EXPECTED_COUNT = 39
+    EXPECTED_RUN = 76904
+
+    @lazy_property
+    def songs(self):
+        return SongData(self.data)
+
+    def _cereal(self):
+        return self.songs._cereal()
+
+
+class RegDumpSection(DumpSection):
+    """
+    The reg section of the dump
+    """
+    SECTION_BYTE = 0x09
+    SECTION_NAME = "Registration data"
+    EXPECTED_COUNT = 2
+    EXPECTED_RUN = 816
+
+    @lazy_property
+    def settings(self):
+        return RegData(self.data)
+
+    def _cereal(self):
+        return self.settings._cereal()
