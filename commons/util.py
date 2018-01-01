@@ -8,6 +8,7 @@ import sys
 import weakref
 import itertools
 import collections
+import collections.abc
 
 # SysEx Manufacturer ID
 YAMAHA = 0x43

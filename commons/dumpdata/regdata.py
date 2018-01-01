@@ -1,4 +1,5 @@
 import collections
+import collections.abc
 
 from ..util import CachedSequence
 from ..exceptions import MalformedDataError

@@ -1,4 +1,5 @@
 import collections
+import collections.abc
 import numbers
 import struct
 import functools
