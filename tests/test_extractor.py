@@ -12,13 +12,13 @@ def ffab():
     return ffa, ffb
 
 
-@pytest.fixture(scope='module')
-def ffcd():
-    ffc = e._read_dump_from_filename(
-        'test_data/dumptestpartial.syx', songonly=True)
-    ffd = e._read_dump_from_filename(
-        'test_data/dumptestpartial.txt', songonly=True)
-    return ffc, ffd
+# @pytest.fixture(scope='module')
+# def ffcd():
+#     ffc = e._read_dump_from_filename(
+#         'test_data/dumptestpartial.syx', songonly=True)
+#     ffd = e._read_dump_from_filename(
+#         'test_data/dumptestpartial.txt', songonly=True)
+#     return ffc, ffd
 
 
 @pytest.fixture(scope='module')
@@ -28,10 +28,10 @@ def jcereal():
     return json_cereal
 
 
-def test_equivalence(ffab, ffcd, jcereal):
+def test_equivalence(ffab, jcereal):
     assert ffab[0]._cereal() == ffab[1]._cereal() == jcereal
-    assert ffcd[0]._cereal() == ffcd[1]._cereal()
-    assert ffab[0].song_data._cereal() == ffcd[1].song_data._cereal()
+    # assert ffcd[0]._cereal() == ffcd[1]._cereal()
+    # assert ffab[0].song_data._cereal() == ffcd[1].song_data._cereal()
 
 
 def test_incomplete():
@@ -41,15 +41,16 @@ def test_incomplete():
         e._read_dump_from_filename('test_data/dumptestpartial.txt')
 
 
-def test_midi(ffab, ffcd):
-    assert ffab[1].song_data.songs[0].midi == ffcd[0].song_data.songs[0].midi
+def test_midi(ffab):
+    # assert ffab[1].song_data.songs[0].midi == ffcd[0].song_data.songs[0].midi
 
     with pytest.raises(NotRecordedError):
         ffab[0].song_data.songs[3].midi
 
     with open('test_data/UserSong2.mid', 'rb') as u2m:
         us2 = u2m.read()
-    assert us2 == ffcd[1].song_data.songs[1].midi
+    assert (us2 == ffab[0].song_data.songs[1].midi
+            == ffab[1].song_data.songs[1].midi)
 
 
 def test_sequences(ffab):

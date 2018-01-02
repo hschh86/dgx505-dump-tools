@@ -8,7 +8,7 @@ from commons.dgxdump import DgxDump
 from commons.exceptions import NotRecordedError
 
 
-def _read_dump_from_filename(filename, verbose=False, songonly=False):
+def _read_dump_from_filename(filename, verbose=False):
     # if filename == '-':
     #     # stdin in binary mode
     #     # Needs EOF.
@@ -22,14 +22,14 @@ def _read_dump_from_filename(filename, verbose=False, songonly=False):
         messages = read_syx_file(infile)
     if verbose:
         eprint("All messages read from file")
-    return DgxDump(messages, verbose, reg=not songonly)
+    return DgxDump(messages, verbose)
 
 
-def _read_dump_from_portname(portname, verbose=False, songonly=False):
+def _read_dump_from_portname(portname, verbose=False):
     with mido.open_input(portname) as inport:
         if verbose:
             eprint("Listening to port {!r}".format(inport.name))
-        dump = DgxDump(inport, verbose, reg=not songonly)
+        dump = DgxDump(inport, verbose)
         if verbose:
             eprint("All messages read from port")
     return dump
@@ -47,9 +47,6 @@ _ingroup = _argparser.add_argument_group("Input options")
 _ingroup.add_argument(
     '-f', '--fileinput', action='store_true',
     help="Read from file instead of port")
-_ingroup.add_argument(
-    '-s', '--songonly', action='store_true',
-    help='Ignore the registration memory data')
 
 _outgroup = _argparser.add_argument_group("Output options")
 _outgroup.add_argument(
@@ -74,10 +71,10 @@ _rgroup.add_argument(
 def _main(args):
     if args.fileinput:
         dump = _read_dump_from_filename(
-            args.input, args.verbose, args.songonly)
+            args.input, args.verbose)
     else:
         dump = _read_dump_from_portname(
-            args.input, args.verbose, args.songonly)
+            args.input, args.verbose)
 
     if args.clobber:
         fmode = 'wb'
@@ -115,7 +112,7 @@ def _main(args):
                     eprint("Error: file exists: {!r}. Ignoring...".format(
                         filename))
 
-    if not (args.quiet or args.songonly):
+    if not args.quiet:
         for setting in dump.reg_data:
             setting.print_settings()
             print()
