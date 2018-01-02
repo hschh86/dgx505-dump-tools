@@ -9,6 +9,7 @@ proper recording.
 """
 import sys
 import argparse
+import time
 
 from commons import mido_util
 from commons.timers import offsetTimer
@@ -29,15 +30,22 @@ portargs.add_argument(
     '-v', '--virtual', action='store_true',
     help='Use virtual port')
 
+argparser.add_argument(
+    '-c', '--clocktime', action='store_true',
+    help="Use the clock (since epoch) time instead of elapsed time")
+
 args = argparser.parse_args()
 
 
 # is using the callback-thread thing the right way to do this?
 # dunno. super timer accuracy isn't important anyway
 
-def new_callback():
+def new_callback(clocktime=False):
     # this is a bit of an overcomplicated way to do it but whatever
-    timer = offsetTimer()
+    if clocktime:
+        timer = time.time
+    else:
+        timer = offsetTimer()
 
     def msg_callback(message):
         # mutate the message!
@@ -50,7 +58,7 @@ def new_callback():
 
 
 with mido_util.open_input(args.port, args.guessport, args.virtual,
-                          callback=new_callback()) as inport:
+                          callback=new_callback(args.clocktime)) as inport:
     eprint('Reading from port {!r}. Press enter to stop'.format(inport.name))
     # wait for any user input
     input()
