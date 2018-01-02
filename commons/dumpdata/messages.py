@@ -144,11 +144,11 @@ class DumpSection(object):
 
         while not dm.end:
             if dm.header != self.header:
-                raise MessageSequenceError("Header mismatch")
+                raise MessageSequenceError("Header mismatch", dm)
             if dm.section != self.SECTION_BYTE:
-                raise MessageSequenceError("Section mismatch")
+                raise MessageSequenceError("Section mismatch", dm)
             if dm.run != run:
-                raise MessageSequenceError("Running count mismatch")
+                raise MessageSequenceError("Running count mismatch", dm)
             run += dm.padded_size
             if verbose:
                 count += 1

@@ -21,20 +21,26 @@ class NotRecordedError(ExtractorError):
 
 # message errors
 class MessageError(ExtractorError):
-    pass
+    def __init__(self, description, msg=None):
+        self.description = description
+        self.msg = msg
 
 
 class MessageParsingError(MessageError):
     """
     Exception raised when something unexpected happens while parsing messages
     """
-    def __init__(self, description, msg=None):
-        self.description = description
-        self.msg = msg
+    pass
 
 
 class MessageSequenceError(MessageError):
     """
     Exception raised on errors while collecting a sequence of messages
     """
-    pass
+    def __init__(self, description, dmsg=None):
+        self.dmsg = dmsg
+        if dmsg is None:
+            msg = None
+        else:
+            msg = dmsg.message
+        super().__init__(description, msg)
