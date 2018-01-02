@@ -52,7 +52,7 @@ args = argparser.parse_args()
 
 DEFAULT_BYTERATE = 3125
 
-with open(args.filename, 'rb') as infile:
+with open(args.filename, 'rt') as infile:
     msgs = list(mido_util.readin_strings(infile))
 
 # Time manipulation time.

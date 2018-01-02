@@ -100,7 +100,7 @@ def readin_strings(infile):
     Returns iterator over messages.
     """
     for line in infile:
-        yield mido.parse_string(line.decode('ascii'))
+        yield mido.parse_string(line)
 
 
 def read_syx_file(infile):

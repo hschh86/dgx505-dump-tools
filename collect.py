@@ -1,22 +1,24 @@
 """
 collect.py
 
-write out bulk dump data to a file
-Starts reading from the first sysex message
-and stops reading at the first Clock message.
+write out bulk dump data from a port or mido-text-file to a file
 """
 # import sys
 import argparse
 
 from commons.util import eprint
-from commons import mido_util
+from commons import mido_util, dgxdump
 
 argparser = argparse.ArgumentParser(
     description="Writes out bulk dump data to file")
 
-argparser.add_argument(
+inargs = argparser.add_mutually_exclusive_group()
+inargs.add_argument(
     '-p', '--port', type=str,
     help="Port to read from (run 'mido-ports' to list available ports)")
+inargs.add_argument(
+    '-f', '--file', type=str,
+    help="Text mido message file to read from")
 
 portargs = argparser.add_mutually_exclusive_group()
 portargs.add_argument(
@@ -25,6 +27,10 @@ portargs.add_argument(
 portargs.add_argument(
     '-v', '--virtual', action='store_true',
     help='Use virtual port')
+
+argparser.add_argument(
+    '-a', '--all', action='store_true',
+    help="Grab all the sysex messages until clock, no checks")
 
 argparser.add_argument(
     '-t', '--plaintext', action='store_true',
@@ -54,13 +60,29 @@ if args.plaintext:
 else:
     outfile = open(args.outfile, 'xb')
 
-with mido_util.open_input(args.port, args.guessport, args.virtual) as inport:
-    eprint('Reading from port', inport.name)
-    messages = []
-    for message in mido_util.grab_sysex_until_clock(inport):
-        eprint('Message recieved...')
-        messages.append(message)
-    eprint('Messages finished')
+
+def _get_msgs(msgs):
+    if args.all:
+        messages = []
+        for message in mido_util.grab_sysex_until_clock(msgs):
+            eprint('Message recieved...')
+            messages.append(message)
+        eprint('Messages finished')
+        return messages
+    else:
+        dump = dgxdump.DgxDump(msgs, verbose=True)
+        return dump.iter_messages()
+
+
+if args.file:
+    with open(args.file, 'rt') as infile:
+        eprint('Reading from file', args.file)
+        messages = _get_msgs(mido_util.readin_strings(infile))
+else:
+    with mido_util.open_input(args.port,
+                              args.guessport, args.virtual) as inport:
+        eprint('Reading from port', inport.name)
+        messages = _get_msgs(inport)
 
 eprint('Writing file', args.outfile)
 with outfile:
