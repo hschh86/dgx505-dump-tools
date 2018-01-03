@@ -1,4 +1,5 @@
 import argparse
+import sys
 
 import mido
 
@@ -9,17 +10,18 @@ from commons.exceptions import NotRecordedError
 
 
 def _read_dump_from_filename(filename, verbose=False):
-    # if filename == '-':
-    #     # stdin in binary mode
-    #     # Needs EOF.
-    #     if args.verbose:
-    #         eprint("Reading from stdin")
-    #     messages = read_syx_file(sys.stdin.buffer)
-    # else:
-    if verbose:
-        eprint("Reading from file {!r}".format(filename))
-    with open(filename, 'rb') as infile:
-        messages = read_syx_file(infile)
+    if filename == '-':
+        # stdin in binary mode
+        # Needs EOF.
+        # to do it better, we could do it asynchronously somehow
+        if verbose:
+            eprint("Reading from stdin")
+        messages = read_syx_file(sys.stdin.buffer)
+    else:
+        if verbose:
+            eprint("Reading from file {!r}".format(filename))
+        with open(filename, 'rb') as infile:
+            messages = read_syx_file(infile)
     if verbose:
         eprint("All messages read from file")
     return DgxDump(messages, verbose)
@@ -113,7 +115,7 @@ def _main(args):
                         filename))
 
     if not args.quiet:
-        for setting in dump.reg_data:
+        for setting in dump.reg_data.settings.iter_settings():
             setting.print_settings()
             print()
 

@@ -4,7 +4,7 @@ broadcast.py
 Basically, the opposite of slurp.py.
 Keep in mind that the times are only approximate
 """
-
+import sys
 import time
 import argparse
 import operator
@@ -52,7 +52,12 @@ args = argparser.parse_args()
 
 DEFAULT_BYTERATE = 3125
 
-with open(args.filename, 'rt') as infile:
+if args.filename == '-':
+    # stdin. blocking read
+    infile = sys.stdin
+else:
+    infile = open(args.filename, 'rt')
+with infile:
     msgs = list(mido_util.readin_strings(infile))
 
 # Time manipulation time.
