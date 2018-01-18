@@ -1,125 +1,227 @@
 import argparse
-import sys
 
-import mido
+from commons import util, mido_util, dgxdump, exceptions
 
-from commons.util import eprint
-from commons.mido_util import read_syx_file
-from commons.dgxdump import DgxDump
-from commons.exceptions import NotRecordedError
+eprint = util.eprint
 
 
-def _read_dump_from_filename(filename, verbose=False):
-    if filename == '-':
-        # stdin in binary mode
-        # Needs EOF.
-        # to do it better, we could do it asynchronously somehow
+class UserSongNumberListAction(argparse.Action):
+    def __init__(self, option_strings, dest, **kwargs):
+        kwargs['nargs'] = '*'
+        kwargs['type'] = int
+        super().__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        SONGS = range(1, 5+1)
+        if values is None:
+            setattr(namespace, self.dest, self.default)
+        elif values == []:
+            setattr(namespace, self.dest, list(SONGS))
+        else:
+            seen = set()
+            for value in values:
+                if value not in SONGS:
+                    raise argparse.ArgumentError(
+                        self, "Invalid song number: {}".format(value))
+                if value in seen:
+                    raise argparse.ArgumentError(
+                        self, "Duplicate song number: {}".format(value))
+                seen.add(value)
+            setattr(namespace, self.dest, values)
+
+
+class EnsureSingleFormatAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        # try out some formats
+        try:
+            invalid = (str.format(values, 1) == str.format(values, 2))
+        except (IndexError, ValueError):
+            invalid = True
+        if invalid:
+            raise argparse.ArgumentError(
+                self, "Invalid format: {!r}".format(values))
+        else:
+            setattr(namespace, self.dest, values)
+
+
+class RegBankButtonListAction(argparse.Action):
+    def __init__(self, option_strings, dest, **kwargs):
+        kwargs['nargs'] = '*'
+        super().__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        # A list of regist identifiers, where regist identifier
+        # are either a number [1-8], representing a bank, or
+        # a pair of numbers with a comma [1-8],[1-2] representing bank+button.
+        # duplicate entries, inc. bank only, error.
+
+        # values = a list, or None
+        BANKS = range(1, 8+1)
+        BUTTONS = range(1, 2+1)
+        if values is None:
+            setattr(namespace, self.dest, self.default)
+        else:
+            # assume values is a list of strings.
+            value_list = []
+            seen = set()
+
+            def addident(bank, button):
+                if bank not in BANKS:
+                    raise argparse.ArgumentError(
+                        self, "Invalid bank {},{}".format(bank, button))
+                if button not in BUTTONS:
+                    raise argparse.ArgumentError(
+                        self, "Invalid button {},{}".format(bank, button))
+                bt = (bank, button)
+                if bt in seen:
+                    raise argparse.ArgumentError(
+                        self,
+                        "Duplicate identifier {},{}".format(bank, button))
+                seen.add(bt)
+                value_list.append(bt)
+
+            for value in values:
+                try:
+                    x = int(value)
+                except ValueError:
+                    try:
+                        x, y = map(int, value.split(","))
+                    except (IndexError, ValueError):
+                        raise argparse.ArgumentError(
+                            self, "Invalid argument {!r}".format(value))
+                    addident(x, y)
+                else:
+                    addident(x, 1)
+                    addident(x, 2)
+
+            setattr(namespace, self.dest, value_list)
+
+
+def _read_dump_from_filename(filename, mfile=False, verbose=False):
+        # if args.sfile or args.mfile:
+        if mfile:
+            file_form = "midotext"
+            file_mode = "rt"
+            mfunc = mido_util.readin_strings
+        else:  # args.sfile
+            file_form = "syx"
+            file_mode = "rb"
+            mfunc = mido_util.read_syx_file
+        if filename is None or filename == '-':
+            # stdin
+            # Needs EOF.
+            # to do it better, we could do it asynchronously somehow
+            file_display = 'stdin'
+            file_context = util.nonclosing_stdstream(file_mode)
+        else:
+            file_display = 'file ' + filename
+            file_context = open(filename, file_mode)
         if verbose:
-            eprint("Reading from stdin")
-        messages = read_syx_file(sys.stdin.buffer)
-    else:
+            eprint("Reading {} from {}".format(file_form, file_display))
+        with file_context as infile:
+            messages = mfunc(infile)
         if verbose:
-            eprint("Reading from file {!r}".format(filename))
-        with open(filename, 'rb') as infile:
-            messages = read_syx_file(infile)
-    if verbose:
-        eprint("All messages read from file")
-    return DgxDump(messages, verbose)
-
-
-def _read_dump_from_portname(portname, verbose=False):
-    with mido.open_input(portname) as inport:
-        if verbose:
-            eprint("Listening to port {!r}".format(inport.name))
-        dump = DgxDump(inport, verbose)
-        if verbose:
-            eprint("All messages read from port")
-    return dump
+            eprint("All messages read from file")
+        dump = dgxdump.DgxDump(messages, verbose)
+        # else:
+        #     portname = args.input
+        #     with mido.open_input(portname) as inport:
+        #         sprint("Listening to port {!r}".format(inport.name))
+        #         dump = dgxdump.DgxDump(inport, not args.quiet)
+        #         sprint("All messages read from port")
+        return dump
 
 
 # argparser stuff
-_argparser = argparse.ArgumentParser(
+argparser = argparse.ArgumentParser(
     description="Extract UserSong MIDI files from a sysex dump")
-_argparser.add_argument(
-    'input', type=str,
-    help="Port to read from (run 'mido-ports' to list available ports)"
-         " / Filename")
+argparser.add_argument(
+    'file', type=str, nargs='?',
+    help="File to read from (defaults to stdin)")
 
-_ingroup = _argparser.add_argument_group("Input options")
-_ingroup.add_argument(
-    '-f', '--fileinput', action='store_true',
-    help="Read from file instead of port")
+ingroup = argparser.add_argument_group("Input options")
+ingroup.add_argument(
+    '--mfile', action='store_true',
+    help="Read from mido message text file instead of syx file")
 
-_outgroup = _argparser.add_argument_group("Output options")
-_outgroup.add_argument(
-    '-m', '--midiprefix', type=str,
-    help="write out usersong midi with this file prefix")
-_outgroup.add_argument(
-    '-d', '--dumpfile', type=str,
-    help="write out syx dump with this filename"),
-_outgroup.add_argument(
+printgroup = argparser.add_argument_group("Text output (stdout)")
+printgroup.add_argument(
+    '-S', '--printsong', metavar='N',
+    action=UserSongNumberListAction,
+    help="Print out information for these user songs")
+printgroup.add_argument(
+    '-R', '--printreg', metavar='X',
+    action=RegBankButtonListAction,
+    help="Print out information for these regist settings")
+
+midigroup = argparser.add_argument_group("MIDI File output")
+midigroup.add_argument(
+    '-s', '--writesong', metavar='N',
+    action=UserSongNumberListAction,
+    help="Write out midi files for these user songs")
+midigroup.add_argument(
+    '-n', '--nameformat', type=str, metavar='FORMAT',
+    default='UserSong{:1d}.mid', action=EnsureSingleFormatAction,
+    help="Python-format string for output midi file")
+midigroup.add_argument(
     '-c', '--clobber', action='store_true',
-    help='overwrite files that already exist')
+    help='overwrite files that already exist (skips by default)')
 
-_rgroup = _argparser.add_argument_group("Other options")
-_rgroup.add_argument(
-    '-v', '--verbose', action='store_true',
-    help='Print progress messages to stderr')
-_rgroup.add_argument(
+argparser.add_argument(
     '-q', '--quiet', action='store_true',
-    help="Don't print the song stats and one-touch-settings to stdout")
+    help="Don't print progress messages to stderr")
 
+if __name__ == '__main__':
+    args = argparser.parse_args()
 
-def _main(args):
-    if args.fileinput:
-        dump = _read_dump_from_filename(
-            args.input, args.verbose)
-    else:
-        dump = _read_dump_from_portname(
-            args.input, args.verbose)
+    if all(x is None for x in (args.writesong, args.printsong, args.printreg)):
+        argparser.error("at least one of -S -R -s is required (no output)")
 
+    # QUIET
+    verbose = not args.quiet
+
+    # CLOBBER
     if args.clobber:
         fmode = 'wb'
     else:
         fmode = 'xb'
 
-    if args.dumpfile is not None:
-        if args.verbose:
-            eprint("Writing dump file {!r}".format(args.dumpfile))
-        try:
-            with open(args.dumpfile, fmode) as outfile:
-                dump.write_syx(outfile)
-        except FileExistsError:
-            eprint("Error: file exists: {!r}. Ignoring...".format(
-                args.dumpfile))
+    # INPUT
+    dump = _read_dump_from_filename(args.file, args.mfile, verbose)
 
-    for song in dump.song_data.songs:
-        if not args.quiet:
-            song.print_info()
+    # Printing to stdout.
+    if args.printsong is not None:
+        songs = dump.song_data.songs
+        for song_number in args.printsong:
+            songs.get_song(song_number).print_info()
             print()
-        if args.midiprefix is not None:
+    if args.printreg is not None:
+        reg_settings = dump.reg_data.settings
+        if args.printreg == []:
+            settings = reg_settings.iter_settings()
+        else:
+            settings = (reg_settings.get_setting(*i) for i in args.printreg)
+        for setting in settings:
+            setting.print_settings()
+            print()
+
+    # Writing out songs:
+    if args.writesong is not None:
+        for song_number in args.writesong:
+            song = dump.song_data.songs.get_song(song_number)
             try:
                 midi = song.midi
-            except NotRecordedError:
-                pass
+            except exceptions.NotRecordedError:
+                if verbose:
+                    eprint("User Song {} not recorded.".format(song_number))
             else:
-                filename = "{}_UserSong{}.mid".format(
-                    args.midiprefix, song.number)
-                if args.verbose:
-                    eprint("Writing midi file {!r}".format(filename))
+                filename = args.nameformat.format(song_number)
+                if verbose:
+                    eprint("User Song {} - Writing midi file {!r}".format(
+                        song_number, filename))
                 try:
                     with open(filename, fmode) as outfile:
                         outfile.write(midi)
                 except FileExistsError:
                     eprint("Error: file exists: {!r}. Ignoring...".format(
                         filename))
-
-    if not args.quiet:
-        for setting in dump.reg_data.settings.iter_settings():
-            setting.print_settings()
-            print()
-
-
-if __name__ == "__main__":
-    args = _argparser.parse_args()
-    _main(args)

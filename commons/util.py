@@ -333,3 +333,63 @@ class CachedSequence(collections.abc.Sequence):
                 if idx < 0:
                     raise IndexError("index out of range")
             return self.__get_item(idx)
+
+
+# Again, probably not the best way to do this.
+class nonclosing_stdstream(object):
+    """
+    little wrapper around stdin/stdout, for use as context managers.
+    """
+    def __init__(self, mode='r'):
+        if mode in ('r', 'rt'):
+            self.stream = sys.stdin
+        elif mode in ('w', 'wt'):
+            self.stream = sys.stdout
+        elif mode == 'rb':
+            self.stream = sys.stdin.buffer
+        elif mode == 'wb':
+            self.stream = sys.stdout.buffer
+        else:
+            raise ValueError('invalid mode: {!r}'.format(mode))
+
+    def __enter__(self):
+        return self.stream
+
+    def __exit__(self, *args):
+        pass
+
+
+class UniqueSequence(collections.abc.Sequence):
+    """
+    it's like a really picky ordered set-list of hashable items
+    Items can only be added, and only using append and extend methods or +=
+    Items can't be deleted or overridden.
+    ValueError is raised if a duplicate item is added
+    """
+    def __init__(self, iterable=None):
+        self._list = []
+        self._set = {}
+        if iterable is not None:
+            self.extend(iterable)
+
+    def __getitem__(self, key):
+        return self._list[key]
+
+    def __len__(self):
+        return len(self._list)
+
+    def __contains__(self, key):
+        return key in self._set
+
+    def append(self, item):
+        if item in self._set:
+            raise ValueError("Duplicate item: {!r}".format(item))
+        self._set.add(item)
+        self._list.append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            self.append(item)
+
+    def __iadd__(self, other):
+        self.extend(other)

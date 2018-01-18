@@ -27,7 +27,7 @@ portargs.add_argument(
     '-g', '--guessport', action='store_true',
     help="Guess which port to use (partial name match on PORT)")
 portargs.add_argument(
-    '-v', '--virtual', action='store_true',
+    '-V', '--virtual', action='store_true',
     help='Use virtual port')
 
 argparser.add_argument(

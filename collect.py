@@ -9,23 +9,24 @@ import argparse
 from commons import util, mido_util, dgxdump
 
 argparser = argparse.ArgumentParser(
-    description="Writes out bulk dump data to file")
+    description="Writes out bulk dump data to standard output")
+argparser.add_argument(
+    'input', type=str,
+    help="Port to read from (run 'mido-ports' to list available ports)"
+         " / Filename if applicable")
 
-inargs = argparser.add_mutually_exclusive_group()
+ingroup = argparser.add_argument_group("Input options")
+inargs = ingroup.add_mutually_exclusive_group()
 inargs.add_argument(
-    '-p', '--port', type=str,
-    help="Port to read from (run 'mido-ports' to list available ports)")
-inargs.add_argument(
-    '-f', '--file', type=str,
-    help="Text mido message file to read from")
-
-portargs = argparser.add_mutually_exclusive_group()
-portargs.add_argument(
     '-g', '--guessport', action='store_true',
     help="Guess which port to use (partial name match on PORT)")
-portargs.add_argument(
-    '-v', '--virtual', action='store_true',
+inargs.add_argument(
+    '-V', '--virtual', action='store_true',
     help='Use virtual port')
+inargs.add_argument(
+    '-f', '--mfile', action='store_true',
+    help="Read from mido message text file instead of port")
+
 
 argparser.add_argument(
     '-a', '--all', action='store_true',
@@ -70,12 +71,12 @@ def _get_msgs(msgs):
         return dump.iter_messages()
 
 
-if args.file:
-    with open(args.file, 'rt') as infile:
-        sprint('Reading from file', args.file)
+if args.mfile:
+    with open(args.input, 'rt') as infile:
+        sprint('Reading from file', args.input)
         messages = _get_msgs(mido_util.readin_strings(infile))
 else:
-    with mido_util.open_input(args.port,
+    with mido_util.open_input(args.input,
                               args.guessport, args.virtual) as inport:
         sprint('Reading from port', inport.name)
         messages = _get_msgs(inport)
