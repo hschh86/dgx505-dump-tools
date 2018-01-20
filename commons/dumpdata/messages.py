@@ -1,5 +1,7 @@
+import logging
+
 from ..exceptions import MessageParsingError, MessageSequenceError
-from ..util import (YAMAHA, eprint,
+from ..util import (YAMAHA,
                     unpack_seven, reconstitute_all, not_none_get,
                     lazy_property)
 from .songdata import SongData
@@ -104,7 +106,7 @@ class DumpSection(object):
     EXPECTED_COUNT = None
     EXPECTED_RUN = None
 
-    def __init__(self, message_seq, verbose=False, header=None):
+    def __init__(self, message_seq, log=None, header=None):
         """
         Verifies that all the sizes and running total match and everything.
         MessageParsingError raised if the messages don't match.
@@ -112,8 +114,16 @@ class DumpSection(object):
         Concatenated payload memoryview in self.data
 
         message_seq = an iterable of mido messages
-        verbose = print status messages to stderr.
+        log = name of a logger (logging module)
+        header = the header part of the message (optional)
         """
+        # logging.
+        # I don't know what exactly is best practice here
+        if log is None:
+            log = __name__
+        logger = logging.getLogger(log)
+        verbose = logger.isEnabledFor(logging.INFO)
+
         self.dm_list = []
 
         run = 0
@@ -140,7 +150,7 @@ class DumpSection(object):
             expected_run = not_none_get(self.EXPECTED_RUN, "?")
             count_len = len(str(expected_count))
             run_len = len(str(expected_run))
-            eprint("Section: {}".format(self.SECTION_NAME))
+            logger.info("Section: {}".format(self.SECTION_NAME))
 
         while not dm.end:
             if dm.header != self.header:
@@ -152,9 +162,9 @@ class DumpSection(object):
             run += dm.padded_size
             if verbose:
                 count += 1
-                eprint(
+                logger.info(
                     ("Message {:>{cl}} of {}, "
-                     "{:>{rl}}/{} data bytes recieved").format(
+                     "{:>{rl}}/{} data bytes received").format(
                         count, expected_count, run, expected_run,
                         cl=count_len, rl=run_len))
             self.dm_list.append(dm)
@@ -166,7 +176,7 @@ class DumpSection(object):
         # end of section
         if verbose:
             count += 1
-            eprint("Message {:>{cl}} of {}, end of section".format(
+            logger.info("Message {:>{cl}} of {}, end of section".format(
                 count, expected_count, cl=count_len, rl=run_len))
 
         self.dm_list.append(dm)

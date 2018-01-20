@@ -5,8 +5,9 @@ write out bulk dump data from a port or mido-text-file to stdout
 """
 import sys
 import argparse
+import logging
 
-from commons import util, mido_util, dgxdump
+from commons import mido_util, dgxdump
 
 argparser = argparse.ArgumentParser(
     description="Writes out bulk dump data to standard output")
@@ -46,48 +47,51 @@ argparser.add_argument(
 
 args = argparser.parse_args()
 
-
 # if args.plaintext:
 #     outfile = open(args.outfile, 'xt')
 # else:
 #     outfile = open(args.outfile, 'xb')
 
+# set up logger
+logger = logging.getLogger('collect')
+handler = logging.StreamHandler()
+logger.addHandler(handler)
 if args.quiet:
-    sprint = util.nop
+    logger.setLevel(logging.WARNING)
 else:
-    sprint = util.eprint
+    logger.setLevel(logging.INFO)
 
 
 def _get_msgs(msgs):
     if args.all:
         messages = []
         for message in mido_util.grab_sysex_until_clock(msgs):
-            sprint('Message received...')
+            logger.info('Message received...')
             messages.append(message)
-        sprint('Messages finished')
+        logger.info('Messages finished')
         return messages
     else:
-        dump = dgxdump.DgxDump(msgs, verbose=not args.quiet)
+        dump = dgxdump.DgxDump(msgs, log='collect')
         return dump.iter_messages()
 
 
 if args.mfile:
     with open(args.input, 'rt') as infile:
-        sprint('Reading from file', args.input)
+        logger.info('Reading from file %r', args.input)
         messages = _get_msgs(mido_util.readin_strings(infile))
 else:
     with mido_util.open_input(args.input,
                               args.guessport, args.virtual) as inport:
-        sprint('Reading from port', inport.name)
+        logger.info('Reading from port %r', inport.name)
         messages = _get_msgs(inport)
 
 # eprint('Writing file', args.outfile)
 
 if args.plaintext:
-    sprint('Writing hex to stdout')
+    logger.info('Writing hex to stdout')
     mido_util.writeout_hex(sys.stdout, messages)
 else:
-    sprint('writing bytes to stdout')
+    logger.info('writing bytes to stdout')
     mido_util.writeout_bytes(sys.stdout.buffer, messages)
 
-sprint('Done!')
+logger.info('Done!')

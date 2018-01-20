@@ -13,20 +13,20 @@ class DgxDump(object):
     # Object-Orientation?
     # More Abstractions, More Often!
 
-    def __init__(self, messages, verbose=False, song=True, reg=True):
+    def __init__(self, messages, log=None, song=True, reg=True):
 
         self._sections = []
         stream = filter_yamaha_sysex(messages)
         # could be improved...
 
         if song:
-            self.song_data = SongDumpSection(stream, verbose)
+            self.song_data = SongDumpSection(stream, log=log)
             self._sections.append(self.song_data)
         else:
             self.song_data = None
 
         if reg:
-            self.reg_data = RegDumpSection(stream, verbose)
+            self.reg_data = RegDumpSection(stream, log=log)
             self._sections.append(self.reg_data)
         else:
             self.reg_data = None

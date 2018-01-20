@@ -1,7 +1,7 @@
 """
 slurp.py
 
-Listens to a port, outputs messages recieved as mido text to stdout.
+Listens to a port, outputs messages received as mido text to stdout.
 Uses the mido message object text serialisation.
 The 'time' attribute of each message is set to the time elapsed, in seconds,
 since listening began. Only approximately, though, so don't rely on it for

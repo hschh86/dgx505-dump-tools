@@ -13,7 +13,7 @@ from commons.dumpdata.messages import RegDumpSection
 def test_reg(datafile, valuefile):
     with open(datafile, 'rb') as infile:
         msgs = read_syx_file(infile)
-        dobj = RegDumpSection(msgs, verbose=True).settings
+        dobj = RegDumpSection(msgs).settings
     with open(valuefile, 'r') as vfile:
         sets = json.load(vfile)
     dset = dobj.get_setting(4, 2)

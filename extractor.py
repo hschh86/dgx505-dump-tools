@@ -1,11 +1,15 @@
 import argparse
+import logging
 
 from commons import util, mido_util, dgxdump, exceptions
 
-eprint = util.eprint
-
 
 class UserSongNumberListAction(argparse.Action):
+    """
+    argparse action for unique list of user song numbers (1-5).
+    argparse.ArgumentError raised for invalid or duplicate song numbers.
+    If option invoked without arguments, [1, 2, 3, 4, 5] is set.
+    """
     def __init__(self, option_strings, dest, **kwargs):
         kwargs['nargs'] = '*'
         kwargs['type'] = int
@@ -31,6 +35,12 @@ class UserSongNumberListAction(argparse.Action):
 
 
 class EnsureSingleFormatAction(argparse.Action):
+    """
+    Argparse action for the filename pattern.
+    Should receive a format string with one argument for the song number
+    Tests for validity by attempting to format with 1 and 2
+    """
+
     def __call__(self, parser, namespace, values, option_string=None):
         # try out some formats
         try:
@@ -45,6 +55,12 @@ class EnsureSingleFormatAction(argparse.Action):
 
 
 class RegBankButtonListAction(argparse.Action):
+    """
+    Argparse action for list of unique regist identifiers, which are
+    the bank then button numbers joined with comma.
+    Single numbers are used as shorthand for both settings in a the bank,
+    for example "2" expands to "2,1 2,2"
+    """
     def __init__(self, option_strings, dest, **kwargs):
         kwargs['nargs'] = '*'
         super().__init__(option_strings, dest, **kwargs)
@@ -97,47 +113,12 @@ class RegBankButtonListAction(argparse.Action):
             setattr(namespace, self.dest, value_list)
 
 
-def _read_dump_from_filename(filename, mfile=False, verbose=False):
-        # if args.sfile or args.mfile:
-        if mfile:
-            file_form = "midotext"
-            file_mode = "rt"
-            mfunc = mido_util.readin_strings
-        else:  # args.sfile
-            file_form = "syx"
-            file_mode = "rb"
-            mfunc = mido_util.read_syx_file
-        if filename is None or filename == '-':
-            # stdin
-            # Needs EOF.
-            # to do it better, we could do it asynchronously somehow
-            file_display = 'stdin'
-            file_context = util.nonclosing_stdstream(file_mode)
-        else:
-            file_display = 'file ' + filename
-            file_context = open(filename, file_mode)
-        if verbose:
-            eprint("Reading {} from {}".format(file_form, file_display))
-        with file_context as infile:
-            messages = mfunc(infile)
-        if verbose:
-            eprint("All messages read from file")
-        dump = dgxdump.DgxDump(messages, verbose)
-        # else:
-        #     portname = args.input
-        #     with mido.open_input(portname) as inport:
-        #         sprint("Listening to port {!r}".format(inport.name))
-        #         dump = dgxdump.DgxDump(inport, not args.quiet)
-        #         sprint("All messages read from port")
-        return dump
-
-
 # argparser stuff
 argparser = argparse.ArgumentParser(
     description="Extract UserSong MIDI files from a sysex dump")
 argparser.add_argument(
-    'file', type=str, nargs='?',
-    help="File to read from (defaults to stdin)")
+    'file', type=str,
+    help="File to read from")
 
 ingroup = argparser.add_argument_group("Input options")
 ingroup.add_argument(
@@ -168,17 +149,64 @@ midigroup.add_argument(
     help='overwrite files that already exist (skips by default)')
 
 argparser.add_argument(
-    '-q', '--quiet', action='store_true',
-    help="Don't print progress messages to stderr")
+    '-v', '--verbose', action='count', default=0,
+    help="Verbose messages. -v for basic, -vv for file parsing messages")
+
+
+def _read_dump_from_filename(filename, mfile=False, log=__name__, sublog=None):
+        logger = logging.getLogger(log)
+        # if args.sfile or args.mfile:
+        if mfile:
+            file_form = "midotext"
+            file_mode = "rt"
+            mfunc = mido_util.readin_strings
+        else:  # args.sfile
+            file_form = "syx"
+            file_mode = "rb"
+            mfunc = mido_util.read_syx_file
+        if filename == '-':
+            # stdin
+            # Needs EOF.
+            # to do it better, we could do it asynchronously somehow
+            file_display = "stdin"
+            file_context = util.nonclosing_stdstream(file_mode)
+        else:
+            file_display = "file {!r}".format(filename)
+            file_context = open(filename, file_mode)
+        logger.info("Reading %s from %s", file_form, file_display)
+        with file_context as infile:
+            messages = mfunc(infile)
+            dump = dgxdump.DgxDump(messages, log=sublog)
+        logger.info("All messages read from %s", file_display)
+        # else:
+        #     portname = args.input
+        #     with mido.open_input(portname) as inport:
+        #         sprint("Listening to port {!r}".format(inport.name))
+        #         dump = dgxdump.DgxDump(inport, not args.quiet)
+        #         sprint("All messages read from port")
+        return dump
+
 
 if __name__ == '__main__':
+    # args
     args = argparser.parse_args()
-
     if all(x is None for x in (args.writesong, args.printsong, args.printreg)):
         argparser.error("at least one of -S -R -s is required (no output)")
 
-    # QUIET
-    verbose = not args.quiet
+    # logger
+    logger = logging.getLogger('extractor')
+    read_logger = logging.getLogger('extractor.read')
+    logger_handler = logging.StreamHandler()
+    logger.addHandler(logger_handler)
+
+    if args.verbose > 0:
+        logger.setLevel(logging.INFO)
+    else:
+        logger.setLevel(logging.WARNING)
+    if args.verbose > 1:
+        read_logger.setLevel(logging.INFO)
+    else:
+        read_logger.setLevel(logging.WARNING)
 
     # CLOBBER
     if args.clobber:
@@ -187,7 +215,8 @@ if __name__ == '__main__':
         fmode = 'xb'
 
     # INPUT
-    dump = _read_dump_from_filename(args.file, args.mfile, verbose)
+    dump = _read_dump_from_filename(args.file, args.mfile,
+                                    log='extractor', sublog='extractor.read')
 
     # Printing to stdout.
     if args.printsong is not None:
@@ -212,16 +241,14 @@ if __name__ == '__main__':
             try:
                 midi = song.midi
             except exceptions.NotRecordedError:
-                if verbose:
-                    eprint("User Song {} not recorded.".format(song_number))
+                logger.info("User Song %d - not recorded.", song_number)
             else:
                 filename = args.nameformat.format(song_number)
-                if verbose:
-                    eprint("User Song {} - Writing midi file {!r}".format(
-                        song_number, filename))
+                logger.info("User Song %d - Writing midi file %r",
+                            song_number, filename)
                 try:
                     with open(filename, fmode) as outfile:
                         outfile.write(midi)
                 except FileExistsError:
-                    eprint("Error: file exists: {!r}. Ignoring...".format(
-                        filename))
+                    logger.warning("Error: file %r exists. Ignoring.",
+                                   filename)
