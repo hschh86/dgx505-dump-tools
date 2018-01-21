@@ -5,7 +5,6 @@ Utilities and helper functions that don't require mido
 
 """
 import sys
-import weakref
 import itertools
 import collections
 import collections.abc
@@ -216,68 +215,6 @@ class lazy_property(object):
         return val
 
 
-# EXTREME laziness.
-# This is one of those premature optimization things where it's probably not
-# worth it, but it was fun to write so it was worth it to ME, dammit.
-# now with bonus overkill!
-class lazy_readonly_property(object):
-    """
-    Use as a decorator for methods in a class definition (hashable only).
-    the wrapped method is called the first time the property is accessed
-    and then the value is stored in a weakref.WeakKeyDictionary with the
-    instance object as the key. Future accesses retrieve the stored value.
-    """
-    def __init__(self, fget, doc=None):
-        if doc is None:
-            doc = fget.__doc__
-        self.__doc__ = doc
-        self.fget = fget
-        self._values = weakref.WeakKeyDictionary()
-
-    def __get__(self, obj, objtype=None):
-        if obj is None:
-            return self
-        try:
-            val = self._values[obj]
-        except KeyError:
-            val = self.fget(obj)
-            self._values[obj] = val
-        return val
-
-    def __set__(self, obj, value):
-        raise AttributeError("cannot set attribute")
-
-
-# This is probably not the best way to do this.
-def lazy_readonly_setup_property(in_name, setup_method, doc=None):
-    """
-    Use inside a class definition, eg:
-    class Whatever(object):
-        def my_setup_method(self):
-            do whatever
-            self._a = result
-
-        my_property = lazy_readonly_setup_property('_a', my_setup_method)
-
-    instance = Whatever()
-    instance.my_property == result
-
-    If instance.my_property is accessed and instance._a is defined, then
-    instance._a is returned immediately; otherwise my_setup_method(instance)
-    is called before instance._a is returned. Make sure that my_setup_method
-    defines the property!
-
-    in_name: the name of the attribute on instances to store in
-    """
-    def fget(self, in_name=in_name, setup_method=setup_method):
-        try:
-            return getattr(self, in_name)
-        except AttributeError:
-            setup_method(self)
-            return getattr(self, in_name)
-    return property(fget, doc=doc)
-
-
 def iter_pairs(itr):
     """
     Iterator over each consecutive pair of items in itr:
@@ -357,39 +294,3 @@ class nonclosing_stdstream(object):
 
     def __exit__(self, *args):
         pass
-
-
-class UniqueSequence(collections.abc.Sequence):
-    """
-    it's like a really picky ordered set-list of hashable items
-    Items can only be added, and only using append and extend methods or +=
-    Items can't be deleted or overridden.
-    ValueError is raised if a duplicate item is added
-    """
-    def __init__(self, iterable=None):
-        self._list = []
-        self._set = {}
-        if iterable is not None:
-            self.extend(iterable)
-
-    def __getitem__(self, key):
-        return self._list[key]
-
-    def __len__(self):
-        return len(self._list)
-
-    def __contains__(self, key):
-        return key in self._set
-
-    def append(self, item):
-        if item in self._set:
-            raise ValueError("Duplicate item: {!r}".format(item))
-        self._set.add(item)
-        self._list.append(item)
-
-    def extend(self, iterable):
-        for item in iterable:
-            self.append(item)
-
-    def __iadd__(self, other):
-        self.extend(other)
