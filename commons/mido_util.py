@@ -97,7 +97,7 @@ def readin_strings(infile):
     Read in string-encoded messages separated by line from a text mode file
     object. Similar to mido.parse_string_stream, except doesn't deal with the
     exceptions.
-    Returns iterator over messages.
+    Generator, yields messages lazily.
     """
     for line in infile:
         yield mido.parse_string(line)
@@ -115,9 +115,28 @@ def read_syx_file(infile):
     if data[0] == 0xF0:
         parser.feed(data)
     else:
-        for line in data.splitlines():
-            parser.feed(bytes.fromhex(line.decode('latin1').strip()))
+        # get rid of non-space whitespace
+        text = data.translate(None, b'\t\n\r\f\v').decode('latin1')
+        parser.feed(bytes.fromhex(text))
     return iter(parser)
+
+
+# this was probably a bad idea
+def read_syx_file_gen(infile, n=1024):
+    parser = mido.Parser()
+    data = infile.read1(n)
+    if data[0] == 0xF0:
+        while data:
+            parser.feed(data)
+            yield from parser
+            data = infile.read1(n)
+    else:
+        line = data + infile.readline()
+        while line:
+            text = line.translate(None, b'\t\n\r\f\v').decode('latin1')
+            parser.feed(bytes.fromhex(text))
+            yield from parser
+            line = infile.readline()
 
 
 def write_syx_file(outfile, messages):

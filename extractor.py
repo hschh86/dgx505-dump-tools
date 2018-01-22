@@ -220,11 +220,13 @@ if __name__ == '__main__':
 
     # Printing to stdout.
     if args.printsong is not None:
+        logger.info('Printing song info to stdout')
         songs = dump.song_data.songs
         for song_number in args.printsong:
             songs.get_song(song_number).print_info()
             print()
     if args.printreg is not None:
+        logger.info('Printing reg info to stdout')
         reg_settings = dump.reg_data.settings
         if args.printreg == []:
             settings = reg_settings.iter_settings()
@@ -236,6 +238,7 @@ if __name__ == '__main__':
 
     # Writing out songs:
     if args.writesong is not None:
+        logger.info('Writing User Song midi files.')
         for song_number in args.writesong:
             song = dump.song_data.songs.get_song(song_number)
             try:
