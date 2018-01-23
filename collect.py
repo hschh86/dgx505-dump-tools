@@ -93,5 +93,6 @@ if args.plaintext:
 else:
     logger.info('writing bytes to stdout')
     mido_util.writeout_bytes(sys.stdout.buffer, messages)
+sys.stdout.flush()
 
 logger.info('Done!')
