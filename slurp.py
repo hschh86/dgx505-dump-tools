@@ -10,10 +10,10 @@ proper recording.
 import sys
 import argparse
 import time
+import logging
 
 from commons import mido_util
 from commons.timers import offsetTimer
-from commons.util import eprint
 
 argparser = argparse.ArgumentParser(
     description="Dumps midi messages as mido text with line breaks to stdout")
@@ -34,7 +34,9 @@ argparser.add_argument(
     '-c', '--clocktime', action='store_true',
     help="Use the clock (since epoch) time instead of elapsed time")
 
-args = argparser.parse_args()
+argparser.add_argument(
+    '-q', '--quiet', action='store_true',
+    help="Don't print progress messages to stderr")
 
 
 # is using the callback-thread thing the right way to do this?
@@ -57,10 +59,38 @@ def new_callback(clocktime=False):
     return msg_callback
 
 
-with mido_util.open_input(args.port, args.guessport, args.virtual,
-                          callback=new_callback(args.clocktime)) as inport:
-    eprint('Reading from port {!r}. Press enter to stop'.format(inport.name))
-    # wait for any user input
-    input()
-    # just in case
-    inport.callback = None
+def main(args):
+    logger = logging.getLogger('slurp')
+    with mido_util.open_input(args.port, args.guessport, args.virtual,
+                              callback=new_callback(args.clocktime)) as inport:
+        try:
+            logger.info('Reading from port %r. Press enter to stop',
+                        inport.name)
+            # wait for any user input
+            input()
+        except KeyboardInterrupt:
+            # ctrl-c
+            logger.info('Stopping on KeyboardInterrupt')
+        except EOFError:
+            # ctrl-d or eof if a file is piped in for some reason
+            logger.info('Stopping on input EOF')
+        else:
+            # input on stdin
+            logger.info('Stopping on input')
+        # just in case
+        inport.callback = None
+
+
+if __name__ == '__main__':
+    args = argparser.parse_args()
+
+    # set up logger
+    logger = logging.getLogger('slurp')
+    handler = logging.StreamHandler()
+    logger.addHandler(handler)
+    if args.quiet:
+        logger.setLevel(logging.WARNING)
+    else:
+        logger.setLevel(logging.INFO)
+
+    main(args)

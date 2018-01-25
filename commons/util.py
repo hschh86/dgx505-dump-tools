@@ -276,6 +276,7 @@ class CachedSequence(collections.abc.Sequence):
 class nonclosing_stdstream(object):
     """
     little wrapper around stdin/stdout, for use as context managers.
+    doesn't actually close the stream when context manager exits.
     """
     def __init__(self, mode='r'):
         if mode in ('r', 'rt'):
@@ -294,3 +295,15 @@ class nonclosing_stdstream(object):
 
     def __exit__(self, *args):
         pass
+
+
+def open_file_stdstream(filename, *args, **kwargs):
+    """
+    little wrapper around nonclosing_stdstream, for use as context manager
+    If filename == '-', returns the nonclosing stdstream context manager,
+    else just returns the open file.
+    """
+    if filename == '-':
+        return nonclosing_stdstream(*args, **kwargs)
+    else:
+        return open(filename, *args, **kwargs)

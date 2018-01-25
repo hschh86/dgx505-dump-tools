@@ -4,10 +4,10 @@ broadcast.py
 Basically, the opposite of slurp.py.
 Keep in mind that the times are only approximate
 """
-import sys
 import time
 import argparse
 import operator
+import logging
 
 from commons import util, mido_util
 
@@ -30,6 +30,10 @@ argparser.add_argument(
 argparser.add_argument(
     '-s', '--speedup', type=float, default='1',
     help="speed multiplier")
+argparser.add_argument(
+    '-c', '--clockless', action='store_true',
+    help="ignore clock messages when reading")
+
 
 waitgroup = argparser.add_mutually_exclusive_group()
 waitgroup.add_argument(
@@ -48,52 +52,90 @@ argparser.add_argument(
     'filename', type=str,
     help="file to read from")
 
-args = argparser.parse_args()
 
 DEFAULT_BYTERATE = 3125
 
-if args.filename == '-':
-    # stdin. blocking read
-    infile = sys.stdin
-else:
-    infile = open(args.filename, 'rt')
-with infile:
-    msgs = list(mido_util.readin_strings(infile))
 
-# Time manipulation time.
-# sort messages by time, just in case.
-msgs.sort(key=operator.attrgetter('time'))
-
-if args.speedup > 0:
-    bytewait = 1/(DEFAULT_BYTERATE*args.speedup)
-else:
-    bytewait = 0
-
-# compute the deltas.
-delta_message_tuples = []
-msg = msgs[0]
-if args.nowait or args.ignoretime:
-    wait = 0
-else:
-    wait = msg.time/args.speedup
-delta_message_tuples.append((wait, msg))
-if args.ignoretime:
-    for last, msg in util.iter_pairs(msgs):
+def ignore_time_deltas(msg_list, bytewait):
+    yield (0, msg_list[0])
+    for last, msg in util.iter_pairs(msg_list):
         wait = len(last)*bytewait
-        delta_message_tuples.append((wait, msg))
-else:
-    for last, msg in util.iter_pairs(msgs):
-        # just completely ignore the bytewait?
-        wait = (msg.time - last.time)/args.speedup
-        delta_message_tuples.append((wait, msg))
+        yield (wait, msg)
 
-with mido_util.open_output(
-        args.port, args.guessport, args.virtual, autoreset=True) as outport:
-    print("writing to port", outport.name)
-    if args.prompt:
-        input("Press enter to start")
-    for wait, msg in delta_message_tuples:
-        time.sleep(wait)
-        outport.send(msg)
-    time.sleep(len(msg)*bytewait)
-    print("finished")
+
+def use_time_deltas(msg_list, nowait, speedup):
+    msg = msg_list[0]
+    if speedup <= 0:
+        raise ValueError("Speedup must be positive!")
+    if nowait or (msg.time < 0):
+        wait = 0
+    else:
+        wait = msg.time / speedup
+    yield (wait, msg)
+    for last, msg in util.iter_pairs(msg_list):
+        # just completely ignore the bytewait?
+        wait = (msg.time - last.time)/speedup
+        yield (wait, msg)
+
+
+def main(args):
+    logger = logging.getLogger('broadcast')
+
+    with util.open_file_stdstream(args.filename, 'rt') as infile:
+        # blocking read
+        msg_gen = mido_util.readin_strings(infile)
+        if args.clockless:
+            msg_gen = (msg for msg in msg_gen if msg.type != 'clock')
+        msgs = list(msg_gen)
+
+    # open the port.
+    with mido_util.open_output(
+            args.port, args.guessport, args.virtual) as outport:
+
+        # bytewait
+        if args.speedup > 0:
+            bytewait = 1/(DEFAULT_BYTERATE*args.speedup)
+        else:
+            bytewait = 0
+
+        # sort messages by time, just in case.
+        msgs.sort(key=operator.attrgetter('time'))
+
+        # compute the deltas.
+        if args.ignoretime:
+            dmt = ignore_time_deltas(msgs, bytewait)
+        else:
+            dmt = use_time_deltas(msgs, args.nowait, args.speedup)
+        delta_message_tuples = list(dmt)
+
+        # send the messages.
+        try:
+            logger.info("sending to port %r", outport.name)
+            if args.prompt:
+                input("Press enter to start")
+            for wait, msg in delta_message_tuples:
+                time.sleep(wait)
+                outport.send(msg)
+            time.sleep(len(msg)*bytewait)
+            logger.info("finished")
+        except KeyboardInterrupt:
+            # newline, as to not screw up the prompt
+            print()
+        finally:
+            # I've found that when using a2jmidid
+            # the port can close too early for autoreset to work
+            # so here we reset manually and sleep before actually closing
+            outport.reset()
+            time.sleep(0.1)
+
+
+if __name__ == '__main__':
+    args = argparser.parse_args()
+
+    # set up logger
+    logger = logging.getLogger('broadcast')
+    handler = logging.StreamHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    main(args)
