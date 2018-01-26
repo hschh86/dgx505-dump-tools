@@ -77,8 +77,9 @@ def main(args):
         else:
             # input on stdin
             logger.info('Stopping on input')
-        # just in case
-        inport.callback = None
+        finally:
+            # just in case
+            inport.callback = None
 
 
 if __name__ == '__main__':
