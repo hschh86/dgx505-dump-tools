@@ -64,19 +64,14 @@ def main(args):
     with mido_util.open_input(args.port, args.guessport, args.virtual,
                               callback=new_callback(args.clocktime)) as inport:
         try:
-            logger.info('Reading from port %r. Press enter to stop',
+            logger.info('Reading from port %r. CtrlC to stop',
                         inport.name)
-            # wait for any user input
-            input()
+            # this thread just sleeps until interrupted.
+            while True:
+                time.sleep(300)
         except KeyboardInterrupt:
             # ctrl-c
             logger.info('Stopping on KeyboardInterrupt')
-        except EOFError:
-            # ctrl-d or eof if a file is piped in for some reason
-            logger.info('Stopping on input EOF')
-        else:
-            # input on stdin
-            logger.info('Stopping on input')
         finally:
             # just in case
             inport.callback = None
