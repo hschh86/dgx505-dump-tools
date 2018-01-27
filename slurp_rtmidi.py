@@ -165,19 +165,11 @@ def main(args):
         # ctrl-c
         logger.info('Stopping on KeyboardInterrupt')
     finally:
-        # close the port. (Also cancels the callback)
-        rt.close_port()
-        # Deal with the remaining messages
-        flush_messages(rt, callback)
-        # note: virtual ports don't actually close until rt is deleted
-        # so there is the possibility that messages keep coming in.
-        # It is then possible that we can't handle them fast enough,
-        # so flush_messages keeps running forever.
-        # in that case, we'd need to interrupt again.
+        # It's probably not worth it to get the remaining messages.
+        # (the proper way to do it would be another try/except/finally on the
+        # time.sleep(args.poll) part only, that way we wouldn't be silently
+        # dropping a message if the interrupt happened during flushing
         del rt
-        # It seems that when the message buffer fills up, an error
-        # message is just printed to stderr,
-        # with no (reasonable) way to catch it.
 
 
 if __name__ == '__main__':
