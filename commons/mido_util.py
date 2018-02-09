@@ -137,14 +137,3 @@ def read_syx_file_gen(infile, n=1024):
             parser.feed(bytes.fromhex(text))
             yield from parser
             line = infile.readline()
-
-
-def write_syx_file(outfile, messages):
-    """
-    Write a binary syx file.
-    Takes a binary mode file object
-    (like mido.write_syx_file, but uses file objects.)
-    """
-    for message in messages:
-        if message.type == 'sysex':
-            outfile.write(message.bin())

@@ -2,7 +2,7 @@ import collections
 
 from .dumpdata.messages import SongDumpSection, RegDumpSection
 from .util import YAMAHA
-from .mido_util import write_syx_file
+from .mido_util import writeout_bytes
 
 
 def filter_yamaha_sysex(messages):
@@ -36,7 +36,7 @@ class DgxDump(object):
             yield from section.iter_messages()
 
     def write_syx(self, outfile):
-        write_syx_file(outfile, self.iter_messages())
+        writeout_bytes(outfile, self.iter_messages())
 
     def _cereal(self):
         return collections.OrderedDict([
