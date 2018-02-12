@@ -510,7 +510,10 @@ Two zero bytes.
 #### Panel Sustain
 Offset: `29`, Length: `1`
 
-This one uses weird values for ON and OFF. Dunno why.
+This one uses weird values for ON and OFF, probably because internally this is
+actually tweaking the *Release Time* parameter which can be set with MIDI
+messages for external inputs, but can only be set to `40` (64) and `6E` (110)
+using the Panel Sustain feature.
 
 * `40` = Sustain OFF
 * `6E` = Sustain ON

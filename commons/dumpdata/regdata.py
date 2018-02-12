@@ -3,8 +3,7 @@ import collections.abc
 
 from ..util import CachedSequence
 from ..exceptions import MalformedDataError
-from .regvalues import (DATA_NAMES, DATA_SLICE_DICT, DATA_STRUCT_DICT,
-                        DATA_MAP_DICT, DISPLAY_ORDER)
+from .regvalues import DATA_SPECS
 
 
 # you can't stop me
@@ -74,10 +73,6 @@ class RegBank(CachedSequence):
         super().__init__(len(setting_data), make_setting)
 
 
-SettingValue = collections.namedtuple("SettingValue",
-                                      "prop value vstr bytes unusual")
-
-
 class RegSetting(collections.abc.Mapping):
     """
     Actual object that represents a registration memory setting
@@ -86,6 +81,9 @@ class RegSetting(collections.abc.Mapping):
     are supposed to be the names in the function menu
     Values are a namedtuple, with string representation in the vstr attribute
     """
+    SettingValue = collections.namedtuple(
+        "SettingValue",
+        "prop recorded value vstr bytes unusual")
 
     def __init__(self, bank, button, data):
 
@@ -94,33 +92,46 @@ class RegSetting(collections.abc.Mapping):
 
         self.data = data
 
-        self._dict = dict.fromkeys(DATA_NAMES)
+        self._dict = dict.fromkeys(DATA_SPECS.SETTING_MAP.keys())
         self._unusual = []
 
         self._parse_values()
 
-        # parse values
+    # parse values
     def _parse_values(self):
-        for key in DATA_NAMES:
+        # We look ahead at the first byte:
+        self.recorded = (self.data[0] != 0)
+        for dname, (dslice, dfunc) in DATA_SPECS.SETTING_MAP.items():
             # get the data as byte slice:
-            raw_bytes = self.data[DATA_SLICE_DICT[key]]
-            # then unpack it:
-            (raw_value,) = DATA_STRUCT_DICT[key].unpack(raw_bytes)
+            raw_bytes = self.data[dslice]
             # then interpret it:
-            key_mapping = DATA_MAP_DICT[key]
-            try:
-                value, vstr = key_mapping[raw_value]
-                unusual = False
-            except KeyError:
+            unusual = False
+            if self.recorded:
+                try:
+                    value, vstr = dfunc(raw_bytes)
+                except KeyError:
+                    unusual = True
+            else:
+                if all(b == 0 for b in raw_bytes):
+                    value = None
+                    vstr = '---'
+                else:
+                    unusual = True
+            if unusual:
                 value = raw_bytes
                 vstr = '<unknown {}>'.format(raw_bytes.hex())
-                unusual = True
             # we build the tuple...
-            val = SettingValue(key, value, vstr, raw_bytes, unusual)
+            val = self.SettingValue(
+                dname, self.recorded, value, vstr, raw_bytes, unusual)
             # then save it
-            self._dict[key] = val
+            self._dict[dname] = val
             if unusual:
                 self._note_unusual(val)
+        # Do a check for the two split points
+        if self.recorded and (self._dict["Split Point"].value
+                              != self._dict["_Split Point 2"].value):
+            self._note_unusual(self._dict["Split Point"])
+            self._note_unusual(self._dict["_Split Point 2"])
 
     def _note_unusual(self, value):
         self._unusual.append(value)
@@ -152,7 +163,7 @@ class RegSetting(collections.abc.Mapping):
         This doesn't iterate over all the keys, though as it excludes
         padding and the duplicate split point.
         """
-        for key in DISPLAY_ORDER:
+        for key in DATA_SPECS.DISPLAY_ORDER:
             yield (key, self._dict[key])
 
     def unusual_len(self):
