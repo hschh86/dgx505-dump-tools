@@ -6,6 +6,7 @@ write out bulk dump data from a port or mido-text-file to stdout
 import sys
 import argparse
 import logging
+import io
 
 from commons import mido_util, dgxdump
 
@@ -27,6 +28,9 @@ inargs.add_argument(
 inargs.add_argument(
     '-f', '--mfile', action='store_true',
     help="Read from mido message text file instead of port")
+inargs.add_argument(
+    '--sfile', action='store_true',
+    help="Read from syx file instead of port")
 
 
 argparser.add_argument(
@@ -75,10 +79,15 @@ def _get_msgs(msgs):
         return dump.iter_messages()
 
 
+# I should probably refactor this with the one in extractor.py
 if args.mfile:
     with open(args.input, 'rt') as infile:
-        logger.info('Reading from file %r', args.input)
+        logger.info('Reading from midotext file %r', args.input)
         messages = _get_msgs(mido_util.readin_strings(infile))
+elif args.sfile:
+    with open(args.input, 'rb') as infile:
+        logger.info('Reading from syx file %r', args.input)
+        messages = _get_msgs(mido_util.read_syx_file(infile))
 else:
     with mido_util.open_input(args.input,
                               args.guessport, args.virtual) as inport:
@@ -89,7 +98,9 @@ else:
 
 if args.plaintext:
     logger.info('Writing hex to stdout')
-    mido_util.writeout_hex(sys.stdout, messages)
+    # Force ASCII
+    out = io.TextIOWrapper(sys.stdout.buffer, encoding="ascii")
+    mido_util.writeout_hex(out, messages)
 else:
     logger.info('writing bytes to stdout')
     mido_util.writeout_bytes(sys.stdout.buffer, messages)
