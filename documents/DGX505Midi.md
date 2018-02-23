@@ -7,6 +7,8 @@ located on pages 110–113 of my multilingual copy of the DGX-505 manual
 See those pages for more information, such as what is *not* recognised.
 
 Some of this is from me experimenting with what messages are transmitted.
+Also refer to the official MIDI reference tables at
+https://www.midi.org/specifications/category/reference-tables.
 
 In this document, `00` denotes hexadecimal, 00 decimal.
 
@@ -52,23 +54,14 @@ This leaves channels 3, 4, 5, 6, 7.
 Actually I'm not sure how exactly the song playback goes. Must check that out.
 
 
-
-### Basic Channel
-Default 1–16 only, no Changed.
-
-### Mode
-There's only one Mode 3: OMNI OFF, POLY
-
 ### Note number
-0 to 127. True Voice.
-
 Note numbers run from 0–127 (`00`–`7F`).
 The lowest key on the DGX-505, A-1, is 21 (`15`), the highest, C7, is 108
 (`63`). Middle C, C3, is 60 (`3C`).
 The numbers transmitted are affected by the Octave and Transpose settings,
 which allows all possible notes to be played on the keyboard.
 Interestingly, if the shifted notes overflow past 0 or 127, they are
-transposed an octave to keep them within range.
+transposed an octave to keep them within range (True Voice range 0–127).
 
 ### Note ON
 * `9n`, velocity=1–127
@@ -80,15 +73,21 @@ but the velocity parameter is ignored.
 
 ### Pitch Bend
 Pitch bend messages are transmitted when the pitch bend wheel is used.
-They are of the format `En ll mm`, where `n` is the channel, and `ll mm` is
-some sort of little-endian offset number ranging from -8192 (`00 00`), through
-zero (`00 40`), up to 8191 (`7F 7F`).
-The formula is (`ll` + `80` * `mm`) - `200`.
+They are of the format `En ll mm`, where `n` is the channel, and `ll mm` are
+the least and most significant 7-bit bytes respectively of the 14-bit value
+with a range of 0–16383.
+The neutral/unchanged value is 8192 (`2000` or `00 40`).
 
+Consequently, Mido subtracts 8192 from the value, reporting `2000`/`00 40` as
+0, with `0`/`00 00` being -8192, and `3FFF`/`7F 7F` being +8191. The formula
+for converting the bytes to mido's value is (`ll` + `80`×`mm`) − `200`.
+
+The highest the physical pitch bend wheel seems to go is +8190 in mido's
+reckoning (`7E 7F`).
 
 ### Control Change messages
-Control change messages have the form `Bn cc dd`, where `n` is the channel,
-`cc` is the control, `dd` is the value.
+Control change messages have the form `Bn cc vv`, where `n` is the channel,
+`cc` is the control, `vv` is the value.
 
 ### Setting the voice
 The voice is set by specifying a bank and program.
@@ -111,23 +110,23 @@ which means 114 in the actual message, of course)
 * Control 32 sets the LSB: `Bn 20 ll`
 
 #### Program Change
-`Cn xx`
+`Cn pp`
 
 For example, voice no. 153, 'Harpsichord KSP', has Bank MSB 0, LSB 1,
 and program 7; to set channel `0` to this voice we use the messages
 `B0 00 00` `B0 20 01` `C0 06`.
 
 ### Voice Volume
-Control 7: `Bn 07 xx`
+Control 7: `Bn 07 vv`
 
 ### Voice Pan
-Control 10: `Bn 0A xx`
+Control 10: `Bn 0A vv`
 
 ### Voice Reverb Level
-Control 91: `Bn 5B xx`
+Control 91: `Bn 5B vv`
 
 ### Voice Chorus Level
-Control 93: `Bn 5D xx`
+Control 93: `Bn 5D vv`
 
 ### Pedal Sustain
 Control 64:
@@ -146,55 +145,137 @@ Using the Panel Sustain function will emit Control 72:
 More generally, this parameter is really the 'Release Time' according to
 the chart, and can actually be set to any value 0–127:
 #### Release Time
-Control 72: `Bn 48 xx`
+Control 72: `Bn 48 vv`
 
 ### Other Control Change Messages
 These cannot be transmitted directly from the keyboard or panel, but
 may be transmitted by Harmony or Song/Style playback.
 
 #### Modulation wheel
-Control 1: `Bn 01 xx`
+Control 1: `Bn 01 vv`
 - Makes wobbly sounds.
 
 #### Expression
-Control 11: `Bn 0B xx`
+Control 11: `Bn 0B vv`
 
 #### Portamento Control
-Control 84: `Bn 54 xx`
+Control 84: `Bn 54 vv`
+- Honestly I'm not too sure what this does for the DGX-505, considering that
+  Portamento Time and ON/OFF are apparently not supported.
 
 #### Harmonic Content
-Control 71: `Bn 47 xx`
+Control 71: `Bn 47 vv`
 
 #### Attack Time
-Control 73: `Bn 49 xx`
+Control 73: `Bn 49 vv`
 - This is like the opposite counterpart of Release time, I think
 
 #### Brightness
-Control 74: `Bn 4A xx`
+Control 74: `Bn 4A vv`
 
-### RPN
-Used for more complicated settings.
+### RPN (Registed Parameter Numbers)
+Used for more complicated settings, each with their own Registed Parameter
+Number (represented here in the form `mm ll`). To set RPN settings, the RPN
+needs to be specified using the RPN MSB/LSB messages, then the value can be
+specified using the Data Entry / Increment / Decrement messages:
 
-#### RPN Inc, Dec (96, 97)
-
-#### RPN LSB / MSB
+##### RPN MSB / LSB
 * MSB set with Control 101: `Bn 65 mm`
 * LSB set with Control 100: `Bn 64 ll`
 
-#### Data Entry
+##### Data Entry
 * MSB set with Control 6: `Bn 06 mm`
-* LSB set with Control 38: `Bn 26 mm`
+* LSB set with Control 38: `Bn 26 ll`
+  - The LSB is optional and used for really fine settings;
+    I'm not sure about how exactly the LSB works when the MSB is set.
 
+##### Data Increment / Decrement
+* MSB incremented with control 96: `Bn 60 xx`
+* MSB decremented with control 97: `Bn 61 xx`
+  - The `xx` bytes are ignored.
 
 #### Pitch Bend Range
-Pitch Bend Range uses RPN `00 00`, with the value as MSB.
+Pitch Bend Range uses RPN `00 00`, with the value as MSB; LSB has no effect.
 
 For example, a pitch bend range of 8 on channel `0` is set with the messages
-  `B0 65 00` `B0 64 00` `B0 06 08`
+`B0 65 00` `B0 64 00` `B0 06 08`.
+
+The range in semitones can be incremented and decremented with the Data
+Increment and Decrement messages.
 
 The panel's Pitch Bend Range setting covers 1–12 for the three keyboard voices
 on channels `0`, `1`, `2`; messages for the tone generator can use 0–24 and
 set the range independently for each channel.
+
+#### Channel Fine Tuning
+Channel Fine Tuning uses RPN `00 01`.
+
+According to the MIDI specs, this should change the tuning of a channel with a
+resolution of 100/8192 cents, ranging from -100 to +100 cents (that is, ±1
+semitone). I have no idea whether this is implemented fully for the DGX-505.
+Changing the MSB definitely works, with values of `00` being a semitone lower,
+`40` the default and `7F` a semitone higher; my hearing isn't good enough to
+judge whether the LSB makes any difference.
+
+#### Channel Coarse Tuning
+Channel Coarse Tuning uses RPN `00 02`, value as MSB only.
+
+This changes the tuning with a resolution of 100 cents (1 semitone); LSB has no
+effect. The default value is `40`; the DGX-505 supports lowering 24 semitones to
+`28` and raising 24 semitones to `58`. The value can go further than this, as
+can be demonstrated using increment/decrement messages, but this has no further
+effect on the tuning.
+
+#### Null
+RPN `7F 7F` is the null function number, for use when you've finished setting
+parameters. It disables the data entry/modification until another RPN is
+selected.
+
+### Channel Mode Messages
+The DGX-505 only supports mode 3 (OMNI OFF, POLY), so the messages that
+would control the omni/poly modes if they were supported are just used for
+their other function of turning sound or notes off.
+
+#### All Sound OFF
+Turns all sound on a channel off. The value `xx` is ignored.
+
+* Control 120: `Bn 78 xx`
+
+Alternatively, the MONO/POLY mode messages do the same thing:
+
+* Control 126: `Bn 7E xx`
+* Control 127: `Bn 7F xx`
+
+#### All Notes OFF
+Turns all notes on a channel off (i.e. as if the keys were released).
+The value `xx` is ignored.
+
+* Control 123: `Bn 7B xx`
+
+Alternatively the OMNI mode messages do the same thing:
+
+* Control 124: `Bn 7C xx`
+* Control 125: `Bn 7D xx`
+
+#### Reset All Controls
+Control 121: `Bn 79 00`
+
+Resets all controls on a channel to default values. Doesn't seem to affect RPN
+settings.
+
+### Other Controls
+#### Local ON/OFF
+Control 122:
+
+* Local ON: `Bn 7A 7F`
+* Local OFF: `Bn 7A 00`
+
+(The channel parameter `n` is ignored.)
+
+Like the Pedal Sustain, values 63 and below are OFF; 64 and above are ON.
+
+Setting Local from ON to OFF also has the effect of All Sound OFF on all
+channels.
 
 
 ### System Real Time
@@ -206,40 +287,45 @@ There are two messages implemented, Start (`FA`) and Stop (`FC`).
 These are transmitted at the start and end of song/style playback.
 Start and Stop messages can also be received when External Clock is ON.
 
-### Aux Messages
-
-#### All Sound OFF (120, 126, 127)
-
-#### Reset All Cntrls (121)
-
-#### Local ON/OFF
-Control 122:
-
-* Local ON: `Bn 7A 7F`
-* Local OFF: `Bn 7A 00`
-
-(The channel parameter `n` is ignored.)
-
-Like the Pedal Sustain, values 63 and below are OFF; 64 and above are ON.
-
-#### All Notes OFF (123–125)
-
-#### Active Sense
+### Active Sense
+The instrument transmits and receives Active Sensing (`FE`) messages.
 
 ### System Exclusive
 
-#### GM System ON: `F0 7E 7F 09 01 F7`
-* "Automatically restores all default settings except Master Tuning"   
+#### GM System ON
+`F0 7E 7F 09 01 F7`
 
-#### MIDI Master Volume: `F0 7F 7F 04 01 ll mm F7`
-* Changes volume of all channels
+* "Automatically restores all default settings except Master Tuning"
+* Also resets the sound on all channels.
+
+#### MIDI Master Volume
+`F0 7F 7F 04 01 ll mm F7`
+
+Changes volume of all channels
 * `mm` values used, `ll` ignored.
 
-#### MIDI Master Tuning: `F0 43 1n 27 30 00 00 mm ll cc F7`
-* Changes tuning of all channels
-* `mm ll` used, defaults to `08 00`. `n` and `cc` ignored.
+Acts independently of channel volume.
 
-#### Reverb Type: `F0 43 1n 4C 02 01 00 mm ll F7`
+#### MIDI Master Tuning
+`F0 43 1n 27 30 00 00 mm ll cc F7`
+
+Changes tuning of all channels. YAMAHA proprietary message.
+* `mm ll` used, defaults to `08 00`. `n` and `cc` ignored.
+* Only the least significant four bits of `mm` and `ll` are in fact used,
+  so it's more like `F0 43 1x 27 30 00 00 xm xl xx F7`, where `x` is ignored.
+  - The formula for the panel value is (`ml` − `80`), clamped to the range
+    -100–+100. Inversely you can add 128 to the panel value and convert to hexadecimal to get `ml`.
+  - When using the panel to adjust Tuning, messages are transmitted with all
+    of the `x` in the above set to `0`.
+
+MIDI Master Tuning acts independently of the Channel Fine/Coarse
+tuning.
+
+
+#### Reverb Type
+`F0 43 1n 4C 02 01 00 mm ll F7`
+
+Sets reverb type. YAMAHA proprietary message.
 * `mm ll` are the MSB and LSB respectively.
 * MSB types:
   * `00`, `05`–`7F`: 10(Off)
@@ -257,12 +343,17 @@ Like the Pedal Sustain, values 63 and below are OFF; 64 and above are ON.
   * `03 11`: 07(Stage2)
   * `04 10`: 08(Plate1)
   * `04 11`: 09(Plate2)
-* It appears that when an LSB corresponds to no specific type specified above,
-  it is as if the LSB was `00`. This means that most fall back to the generic
-  effects that appear as ---(Room) etc, with the exception of Hall, which
-  falls back to 01(Hall1).
 
-#### Chorus Type `F0 43 1n 4C 02 01 20 mm ll F7`
+It appears that when an LSB corresponds to no specific type specified above,
+it is as if the LSB was `00`. This means that most fall back to the generic
+effects that appear as ---(Room) etc, with the exception of Hall, which
+falls back to 01(Hall1).
+
+#### Chorus Type
+`F0 43 1n 4C 02 01 20 mm ll F7`
+
+Sets chorus type. YAMAHA proprietary message.
+
 * `mm ll` are MSB and LSB respectively
 * MSB types:
   * `00`–`3F`, `44`–`7F`: 5(Off)
@@ -276,4 +367,5 @@ Like the Pedal Sustain, values 63 and below are OFF; 64 and above are ON.
   * `41 02`: 2(Chorus2)
   * `43 08`: 3(Flanger1)
   * `43 11`: 4(Flanger2)
-* The same LSB fallback applies.
+
+The same LSB fallback applies.
