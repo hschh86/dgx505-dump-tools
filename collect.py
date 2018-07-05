@@ -94,8 +94,6 @@ else:
         logger.info('Reading from port %r', inport.name)
         messages = _get_msgs(inport)
 
-# eprint('Writing file', args.outfile)
-
 if args.plaintext:
     logger.info('Writing hex to stdout')
     # Force ASCII
