@@ -325,16 +325,14 @@ Then we find `00 00`, which I suspect was added to make the length a multiple
 of seven.
 
 ### Unpacking Each Setting
-Each 44-byte setting has following structure:
+Each setting is stored in 44 bytes. If the setting is unrecorded, all of
+these bytes are `00`. Otherwise, each setting has the following structure:
 
 #### ??
 Offset: `00`, Length: `1`
 
-On all the dumps I've seen, the first byte been the value `01`.
-I suspect this may be the flag that records whether the setting is in use,
-but there's no way to only erase one setting at a time so I haven't been able
-to check.
-(I'm not gonna to erase all the memory, which seems to be the only way to do it)
+Recorded settings have the first byte with value `01`.
+I suspect this may be the flag that records whether the setting is in use.
 
 #### Style number
 Offset: `01`, Length: `1`
