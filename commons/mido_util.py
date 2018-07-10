@@ -3,7 +3,13 @@ mido_util.py
 
 utilities for working with mido ports and messages
 """
+import logging
+import contextlib
+
 import mido
+import mido.ports
+
+from . import util
 
 
 def guess_portname(fragment, portlist):
@@ -137,3 +143,31 @@ def read_syx_file_gen(infile, n=1024):
             parser.feed(bytes.fromhex(text))
             yield from parser
             line = infile.readline()
+
+
+# read in messages
+@contextlib.contextmanager
+def read_messages_file(filename, mfile=False, log=__name__):
+        logger = logging.getLogger(log)
+        # if args.sfile or args.mfile:
+        if mfile:
+            file_form = "midotext"
+            file_mode = "rt"
+            mfunc = readin_strings
+        else:  # args.sfile
+            file_form = "syx"
+            file_mode = "rb"
+            mfunc = read_syx_file
+        if filename == '-':
+            # stdin
+            # Needs EOF.
+            # to do it better, we could do it asynchronously somehow
+            file_display = "stdin"
+            file_context = util.nonclosing_stdstream(file_mode)
+        else:
+            file_display = "file {!r}".format(filename)
+            file_context = open(filename, file_mode)
+        logger.info("Reading %s from %s", file_form, file_display)
+        with file_context as infile:
+            yield mfunc(infile)
+            logger.info("All messages read from %s", file_display)

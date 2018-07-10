@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from commons import util, mido_util, dgxdump, exceptions
+from commons import mido_util, dgxdump, exceptions
 
 
 class UserSongNumberListAction(argparse.Action):
@@ -154,36 +154,8 @@ argparser.add_argument(
 
 
 def _read_dump_from_filename(filename, mfile=False, log=__name__, sublog=None):
-        logger = logging.getLogger(log)
-        # if args.sfile or args.mfile:
-        if mfile:
-            file_form = "midotext"
-            file_mode = "rt"
-            mfunc = mido_util.readin_strings
-        else:  # args.sfile
-            file_form = "syx"
-            file_mode = "rb"
-            mfunc = mido_util.read_syx_file
-        if filename == '-':
-            # stdin
-            # Needs EOF.
-            # to do it better, we could do it asynchronously somehow
-            file_display = "stdin"
-            file_context = util.nonclosing_stdstream(file_mode)
-        else:
-            file_display = "file {!r}".format(filename)
-            file_context = open(filename, file_mode)
-        logger.info("Reading %s from %s", file_form, file_display)
-        with file_context as infile:
-            messages = mfunc(infile)
+        with mido_util.read_messages_file(filename, mfile, log) as messages:
             dump = dgxdump.DgxDump(messages, log=sublog)
-        logger.info("All messages read from %s", file_display)
-        # else:
-        #     portname = args.input
-        #     with mido.open_input(portname) as inport:
-        #         sprint("Listening to port {!r}".format(inport.name))
-        #         dump = dgxdump.DgxDump(inport, not args.quiet)
-        #         sprint("All messages read from port")
         return dump
 
 
