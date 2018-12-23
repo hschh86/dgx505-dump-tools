@@ -18,7 +18,7 @@ class SongData(CachedSequence):
     TRACKS_SLICE = slice(0x15D, 0x167)
     SONG_DURATION_SLICE = slice(0x167, 0x17B)
     TRACK_DURATION_SLICE = slice(0x17B, 0x1F3)
-    PRESETSTYLE_SLICE = slice(0x1F3, 0x22F)
+    PRESETSTYLES_SLICE = slice(0x1F3, 0x22F)
     BEGINNING_BLOCKS_SLICE = slice(0x22F, 0x24D)
     NEXT_BLOCKS_SLICE = slice(0x24D, 0x2CF)
     START_MARKER_SLICE = slice(0x2CF, 0x2D5)
@@ -27,18 +27,22 @@ class SongData(CachedSequence):
 
     EXPECTED_SIZE = 0x106DB
 
-    PRESETSTYLE = b'PresetStyle\0'*5
+    PRESETSTYLE = b'PresetStyle\0'
     MARKER = b'PK0001'
 
     def _message_format_checks(self):
         if len(self.data) != self.EXPECTED_SIZE:
             raise MalformedDataError("Data wrong length!")
-        presetstyle = self.data[self.PRESETSTYLE_SLICE]
         startmarker = self.data[self.START_MARKER_SLICE]
         endmarker = self.data[self.END_MARKER_SLICE]
-        if not ((startmarker == endmarker == self.MARKER) and
-                (presetstyle == self.PRESETSTYLE)):
-            raise MalformedDataError("Invalid format")
+        if not (startmarker == endmarker == self.MARKER):
+            raise MalformedDataError("Invalid format: markers not present")
+        # PresetStyle checks. Not present when not recorded, so it should
+        # probably be moved elsewhere instead of the message format checks.
+        # presetstyles = self.data[self.PRESETSTYLES_SLICE]
+        # for presetstyle in slicebyn(presetstyles, len(self.PRESETSTYLE)):
+        #     if presetstyle != self.PRESETSTYLE:
+        #         raise MalformedDataError("Invalid format: presetstyles")
         if (self.data[self.SONGS_OFFSET] >= (1 << 5)
                 or any(x >= (1 << 6) for x in self.data[self.TRACKS_SLICE])):
             raise MalformedDataError("Unexpected high bits in the fields")

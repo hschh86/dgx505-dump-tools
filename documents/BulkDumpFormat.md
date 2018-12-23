@@ -143,6 +143,9 @@ Then we have the sequence `50 72 65 73 65 74 53 74 79 6C 65 00` repeated five
 times. When decoded to ASCII, this reads "PresetStyle" plus a null byte.
 (Probably some of those C-style null-terminated strings.)
 
+This region is zeroed out when the memory is cleared and no songs have been
+recorded, so it's probably something to do with the five songs.
+
 ### Beginning Blocks
 Offset: `0022F`, Length: (`1` &times; 6) &times; 5
 
