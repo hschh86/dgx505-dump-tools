@@ -1,0 +1,29 @@
+Abbr,Control Hex,Name
+bank_msb,00,Bank MSB
+bank_lsb,32,Bank LSB
+volume,07,Voice Volume
+pan,0A,Voice Pan
+reverb,5B,Voice Reverb Level
+chorus,5D,Voice Chorus Level
+pedal,40,Pedal Sustain
+release,48,Release Time
+modulation,01,Modulation Wheel
+expression,0B,Expression
+portamento_ctrl,54,Portamento Control
+harmonic,47,Harmonic Content
+attack,49,Attack Time
+brightness,4A,Brightness
+rpn_msb,65,RPN MSB
+rpn_lsb,64,RPN LSB
+data_msb,06,Data Entry MSB
+data_lsb,26,Data Entry LSB
+data_inc,60,Data Increment
+data_dec,61,Data Decrement
+sound_off,78,All Sound OFF
+sound_off_xmono,7E,All Sound OFF (MONO)
+sound_off_xpoly,7F,All Sound OFF (POLY)
+notes_off,7B,All Notes OFF
+notes_off_xomnioff,7C,All Notes OFF (OMNI OFF)
+notes_off_xomnion,7D,All Notes OFF (OMNI ON)
+reset_controls,79,Reset All Controls
+local,7A,Local ON/OFF
