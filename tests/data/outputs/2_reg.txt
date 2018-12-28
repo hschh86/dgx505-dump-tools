@@ -1,0 +1,621 @@
+               Recorded   Duration       Size
+ User Song 1      False          0          0
+     Track A      False          0          0
+     Track 1      False          0          0
+     Track 2      False          0          0
+     Track 3      False          0          0
+     Track 4      False          0          0
+     Track 5      False          0          0
+
+               Recorded   Duration       Size
+ User Song 2      False          0          0
+     Track A      False          0          0
+     Track 1      False          0          0
+     Track 2      False          0          0
+     Track 3      False          0          0
+     Track 4      False          0          0
+     Track 5      False          0          0
+
+               Recorded   Duration       Size
+ User Song 3      False          0          0
+     Track A      False          0          0
+     Track 1      False          0          0
+     Track 2      False          0          0
+     Track 3      False          0          0
+     Track 4      False          0          0
+     Track 5      False          0          0
+
+               Recorded   Duration       Size
+ User Song 4      False          0          0
+     Track A      False          0          0
+     Track 1      False          0          0
+     Track 2      False          0          0
+     Track 3      False          0          0
+     Track 4      False          0          0
+     Track 5      False          0          0
+
+               Recorded   Duration       Size
+ User Song 5      False          0          0
+     Track A      False          0          0
+     Track 1      False          0          0
+     Track 2      False          0          0
+     Track 3      False          0          0
+     Track 4      False          0          0
+     Track 5      False          0          0
+
+Bank 1, Button 1:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 1, Button 2:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 2, Button 1:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 2, Button 2:
+       Style number: 050
+      Accompaniment: OFF
+           Main A/B: Main B
+              Tempo:  82
+  Main Voice number: 078
+  Dual Voice number: 076
+ Split Voice number: 046
+            Harmony:  ON
+               Dual:  ON
+              Split: OFF
+       Style Volume: 100
+          Transpose:  00
+   Pitch Bend Range:  02
+        Split Point: 54(F#2)
+          M. Volume: 103
+          M. Octave:   0
+             M. Pan: 064
+    M. Reverb Level: 040
+    M. Chorus Level: 000
+          D. Volume: 066
+          D. Octave:  -1
+             D. Pan: 064
+    D. Reverb Level: 040
+    D. Chorus Level: 020
+          S. Volume: 100
+          S. Octave:   0
+             S. Pan: 064
+    S. Reverb Level: 008
+    S. Chorus Level: 000
+        Reverb Type: 03(Hall3)
+        Chorus Type: 01(Chorus1)
+            Sustain: OFF
+       Harmony Type: 01(Duet)
+     Harmony Volume: 080
+
+Bank 3, Button 1:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 3, Button 2:
+       Style number: 092
+      Accompaniment:  ON
+           Main A/B: Main A
+              Tempo:  80
+  Main Voice number: 060
+  Dual Voice number: 201
+ Split Voice number: 003
+            Harmony: OFF
+               Dual: OFF
+              Split:  ON
+       Style Volume: 050
+          Transpose:  03
+   Pitch Bend Range:  05
+        Split Point: 53(F2)
+          M. Volume: 054
+          M. Octave:  -1
+             M. Pan: 092
+    M. Reverb Level: 078
+    M. Chorus Level: 103
+          D. Volume: 095
+          D. Octave:   2
+             D. Pan: 048
+    D. Reverb Level: 017
+    D. Chorus Level: 082
+          S. Volume: 108
+          S. Octave:   0
+             S. Pan: 064
+    S. Reverb Level: 032
+    S. Chorus Level: 127
+        Reverb Type: ---(Room)
+        Chorus Type: ---(Celeste)
+            Sustain:  ON
+       Harmony Type: 06(Trill1/4)
+     Harmony Volume: 085
+
+Bank 4, Button 1:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 4, Button 2:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 5, Button 1:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 5, Button 2:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 6, Button 1:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 6, Button 2:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 7, Button 1:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 7, Button 2:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 8, Button 1:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
+Bank 8, Button 2:
+       Style number: ---
+      Accompaniment: ---
+           Main A/B: ---
+              Tempo: ---
+  Main Voice number: ---
+  Dual Voice number: ---
+ Split Voice number: ---
+            Harmony: ---
+               Dual: ---
+              Split: ---
+       Style Volume: ---
+          Transpose: ---
+   Pitch Bend Range: ---
+        Split Point: ---
+          M. Volume: ---
+          M. Octave: ---
+             M. Pan: ---
+    M. Reverb Level: ---
+    M. Chorus Level: ---
+          D. Volume: ---
+          D. Octave: ---
+             D. Pan: ---
+    D. Reverb Level: ---
+    D. Chorus Level: ---
+          S. Volume: ---
+          S. Octave: ---
+             S. Pan: ---
+    S. Reverb Level: ---
+    S. Chorus Level: ---
+        Reverb Type: ---
+        Chorus Type: ---
+            Sustain: ---
+       Harmony Type: ---
+     Harmony Volume: ---
+
