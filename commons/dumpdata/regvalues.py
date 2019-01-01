@@ -20,7 +20,7 @@ class BytesAssertMap(collections.abc.Mapping):
     def __iter__(self):
         yield self.expected
 
-    def __len__(self, key):
+    def __len__(self):
         return 1
 
 
@@ -69,7 +69,7 @@ class KeyMap(RangeMap):
         super().__init__(0, 127, 0, None, "03d")
 
     def __getitem__(self, key):
-        number, numstring = super().__getitem__(key)
+        number, _ = super().__getitem__(key)
         a, b = divmod(number, 12)
         octave = a-2
         note = self.NOTES[b]
