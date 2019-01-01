@@ -46,8 +46,8 @@ def not_none_get(value, not_none):
 
 # byte helpers
 def assert_low(byte):
-    """Raise ValueError if byte > 127"""
-    if byte > 0x7F:
+    """Raise ValueError if not seven-bit (i.e. 0 <= byte <= 127) integer"""
+    if byte >> 7 != 0:
         raise ValueError("Byte value out of range: {}".format(byte))
 
 

@@ -6,9 +6,7 @@ For working with the controls / sysex / etc midi messages
 
 import mido
 
-controls = {}
-control_names = {}
-for short, num, name in (
+CONTROL_TABLE = (
     ("bank_msb",           0x00, "Bank MSB"),
     ("bank_lsb",           0x32, "Bank LSB"),
     ("volume",             0x07, "Voice Volume"),
@@ -37,8 +35,18 @@ for short, num, name in (
     ("notes_off_xomnion",  0x7D, "All Notes OFF (OMNI ON)"),
     ("reset_controls",     0x79, "Reset All Controls"),
     ("local",              0x7A, "Local ON/OFF"),
-):
-    controls[short] = num
+)
+RPN_TABLE = (
+    ("pitch_bend_range",  (0x00, 0x00), "Pitch Bend Range"),
+    ("fine_tune",         (0x00, 0x01), "Channel Fine Tuning"),
+    ("coarse_tune",       (0x00, 0x02), "Channel Coarse Tuning"),
+    ("null",              (0x7F, 0x7F), "Null")
+)
+
+control_nums = {}
+control_names = {}
+for short, num, name in CONTROL_TABLE:
+    control_nums[short] = num
     control_names[num] = name
 
 
