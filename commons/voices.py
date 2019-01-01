@@ -4,9 +4,9 @@ voices.py
 
 # maybe this sort of thing is better done using some sort of database.
 
-import pkgutil
-import csv
 import collections
+
+from . import table_util
 
 
 Voice = collections.namedtuple("Voice",
@@ -19,8 +19,7 @@ def _initialise_dicts():
     _names_nonxg = {}
     _names_xg = {}
     # read in data from csv file
-    _cdata = pkgutil.get_data(__name__, 'tables/voices.csv').decode('ascii')
-    _creader = csv.reader(_cdata.splitlines())
+    _creader = table_util.read_csv_table('tables/voices.csv')
     next(_creader)  # Throw away the header
     for number_s, name, category, msb_s, lsb_s, prog_s in _creader:
         # convert strings to ints
