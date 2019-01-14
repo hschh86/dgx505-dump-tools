@@ -33,7 +33,7 @@ Keeping track of the control messages!
 
 import re
 
-from .util import assert_low
+from ..util import assert_low
 from .controls import control_nums, control_names
 
 # some control numbers

@@ -6,7 +6,7 @@ For working with the controls / sysex / etc midi messages
 
 import mido
 
-from commons import voices
+from . import voices
 
 CONTROL_TABLE = (
     ("bank_msb",           0x00, "Bank MSB"),
