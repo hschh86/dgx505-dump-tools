@@ -6,6 +6,8 @@ For working with the controls / sysex / etc midi messages
 
 import mido
 
+from commons import voices
+
 CONTROL_TABLE = (
     ("bank_msb",           0x00, "Bank MSB"),
     ("bank_lsb",           0x32, "Bank LSB"),
@@ -43,12 +45,10 @@ RPN_TABLE = (
     ("null",              (0x7F, 0x7F), "Null")
 )
 
-control_nums = {}
-control_names = {}
-for short, num, name in CONTROL_TABLE:
-    control_nums[short] = num
-    control_names[num] = name
-
+control_nums = {short: num for short, num, _ in CONTROL_TABLE}
+control_names = {num: name for _, num, name in CONTROL_TABLE}
+rpn_nums = {short: num for short, num, _ in RPN_TABLE}
+rpn_names = {num: name for _, num, name in RPN_TABLE}
 
 
 def reverb(msb, lsb):
@@ -83,32 +83,42 @@ def gm_system_on():
         'sysex', data=(0x7E, 0x7F, 0x09, 0x01))
 
 
+def control(name, value, channel=0):
+    return mido.Message(
+        'control_change', control=control_nums[name], value=value, channel=channel)
+
+
 def local(boolean):
     if boolean:
         val = 0x7F
     else:
         val = 0x00
-    return mido.Message('control_change', control=0x7A, value=val)
+    return control('local', value=val)
 
 
 def set_rpn(msb=0x7F, lsb=0x7F, channel=0):
     return [
-        mido.Message(
-            'control_change', control=0x65, value=msb, channel=channel),
-        mido.Message(
-            'control_change', control=0x64, value=lsb, channel=channel)
+        control('rpn_msb', value=msb, channel=channel),
+        control('rpn_lsb', value=lsb, channel=channel)
     ]
+
+
+def set_rpn_names(name, channel=0):
+    msb, lsb = rpn_nums[name]
+    return set_rpn(msb, lsb, channel=channel)
 
 
 def set_bank_program(msb, lsb, program, channel=0):
     return [
-        mido.Message(
-            'control_change', control=0x00, value=msb, channel=channel),
-        mido.Message(
-            'control_change', control=0x20, value=lsb, channel=channel),
-        mido.Message(
-            'program_change', program=program, channel=channel)
+        control('bank_msb', value=msb, channel=channel),
+        control('bank_lsb', value=lsb, channel=channel),
+        mido.Message('program_change', program=program, channel=channel)
     ]
+
+
+def set_voice_numbers(voice_number, channel=0):
+    voice = voices.from_number(voice_number)
+    return set_bank_program(voice.msb, voice.lsb, voice.prog, channel=channel)
 
 
 def multisend(port, messages):

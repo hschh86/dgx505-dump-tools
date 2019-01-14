@@ -212,10 +212,12 @@ Channel Fine Tuning uses RPN `00 01`.
 
 According to the MIDI specs, this should change the tuning of a channel with a
 resolution of 100/8192 cents, ranging from -100 to +100 cents (that is, ±1
-semitone). I have no idea whether this is implemented fully for the DGX-505.
+semitone).
+
 Changing the MSB definitely works, with values of `00` being a semitone lower,
-`40` the default and `7F` a semitone higher; my hearing isn't good enough to
-judge whether the LSB makes any difference.
+`40` the default and `7F` a semitone higher.
+
+The LSB does not seem to have any effect. I tested this by listening for beats when playing the Sine Lead on two different channels and changing the fine tuning on one of them. Incrementing the MSB gives noticeable beats, but setting the LSB to the maximum/minimum doesn't really do anything.
 
 #### Channel Coarse Tuning
 Channel Coarse Tuning uses RPN `00 02`, value as MSB only.
@@ -297,6 +299,8 @@ The instrument transmits and receives Active Sensing (`FE`) messages.
 
 * "Automatically restores all default settings except Master Tuning"
 * Also resets the sound on all channels.
+* This affects the Reverb type and Chorus type to the "defaults" of (01)Hall1 and (---)Chorus.
+  - Upon instrument power on, it was set to 02(Hall2) and 1(Chorus1).
 
 #### MIDI Master Volume
 `F0 7F 7F 04 01 ll mm F7`
@@ -326,7 +330,7 @@ tuning.
 `F0 43 1n 4C 02 01 00 mm ll F7`
 
 Sets reverb type. YAMAHA proprietary message.
-* `mm ll` are the MSB and LSB respectively.
+* `mm ll` are the MSB and LSB respectively. `n` is ignored; this is a global setting that affects the panel and all channels.
 * MSB types:
   * `00`, `05`–`7F`: 10(Off)
   * `01`: 01(Hall1)
@@ -354,7 +358,7 @@ falls back to 01(Hall1).
 
 Sets chorus type. YAMAHA proprietary message.
 
-* `mm ll` are MSB and LSB respectively
+* `mm ll` are MSB and LSB respectively. `n` is ignored, with the same as above.
 * MSB types:
   * `00`–`3F`, `44`–`7F`: 5(Off)
   * `40`: ---(Thru)

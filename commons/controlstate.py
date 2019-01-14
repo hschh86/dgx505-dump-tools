@@ -45,6 +45,7 @@ DATA_MSB = control_nums['data_msb']
 DATA_LSB = control_nums['data_lsb']
 DATA_INC = control_nums['data_inc']
 DATA_DEC = control_nums['data_dec']
+RESET_CONTROLS = control_nums['reset_controls']
 LOCAL = control_nums['local']
 
 # sysex regular expressions
@@ -76,7 +77,8 @@ class ChannelState(object):
         # independently with 2 separate dicts. Simple.
 
         # We also need to keep the state of the program:
-        self._program = None
+        self._bank_program = (None, None, None)
+        # Bank MSB, Bank LSB, Program, as bytes.
         # and that's basically it.
     
     def bank(self):
@@ -85,13 +87,16 @@ class ChannelState(object):
     def rpn(self):
         return self._controls[RPN_MSB], self._controls[RPN_LSB]
 
-    def program(self):
-        return self._program
+    def bank_program(self):
+        return self._bank_program
     
     def set_program(self, value):
         assert_low(value)
 
-        self._program = value
+        # When the program is set, we save the current bank
+        # and the program.
+
+        self._bank_program = (*self.bank(), value)
     
     def set_control(self, control_num, value):
         # control_num and value should be integers 0-127
@@ -140,7 +145,6 @@ class MidiControlState(object):
         self._reverb = None
         self._chorus = None
 
-        #TODO: Check the channel info for the reverb/chorus more carefully.
 
     def feed(self, msg):
         """
@@ -164,6 +168,7 @@ class MidiControlState(object):
                 # GM_ON.
                 # TODO: Find a way to reset to default values.
                 # whatever they are.
+                self.gm_reset()
                 return
             # MIDI Master Volume, F0 7F 7F 04 01 ** mm F7
             match = M_VOL.fullmatch(data)
@@ -194,6 +199,16 @@ class MidiControlState(object):
                     # Chorus
                     self._chorus = msb, lsb
                 return
+    
+    def gm_reset(self):
+        # TODO: What are the default values?
 
-        
+        # "Automatically restores all default settings
+        #  except Master Tuning" -- Manual
 
+        # Reverb type is set to (01)Hall1
+        # This would be 01 00
+        self._reverb = 0x01, 0x00
+        # Chorus type is set to (---)Chorus
+        # I guess this would be 41 00
+        self._chorus = 0x41, 0x00
