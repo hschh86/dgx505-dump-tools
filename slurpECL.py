@@ -20,10 +20,10 @@ import mido
 import time
 import threading
 import sys
+import logging
 
 from commons import mido_util
 from commons.timers import offsetTimer
-from commons.util import eprint
 
 argparser = argparse.ArgumentParser(
     description="Dumps midi messages as mido text with line breaks to stdout")
@@ -91,16 +91,20 @@ def new_callback(stopper, clocktime=False):
 
     return msg_callback
 
+logger = logging.getLogger('slurpECL')
+handler = logging.StreamHandler()
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 with mido_util.open_output(
         output_port, args.guessport, args.virtual,
         autoreset=True) as outport:
-    eprint('Sending to port {!r}'.format(outport.name))
+    logger.info('Sending to port %r', outport.name)
     stopper = threading.Event()
     with mido_util.open_input(
             input_port, args.guessport, args.virtual,
             callback=new_callback(stopper, args.clocktime)) as inport:
-        eprint('Reading from port {!r}'.format(inport.name))
+        logger.info('Reading from port %r', inport.name)
         # send the start message.
         try:
             outport.send(START)
