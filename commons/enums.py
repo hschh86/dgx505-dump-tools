@@ -32,34 +32,6 @@ class EffectTypeEnum(enum.Enum):
             return None
         return self.value
 
-    
-
-class ReverbType(EffectTypeEnum):
-    HALL1 = 1
-    HALL2 = 2
-    HALL3 = 3
-    ROOM1 = 4
-    ROOM2 = 5
-    STAGE1 = 6
-    STAGE2 = 7
-    PLATE1 = 8
-    PLATE2 = 9
-    OFF = 10
-    ROOM = 11
-    STAGE = 12
-    PLATE = 13
-
-class ChorusType(EffectTypeEnum):
-    CHORUS1 = 1
-    CHORUS2 = 2
-    FLANGER1 = 3
-    FLANGER2 = 4
-    OFF = 5
-    THRU = 6
-    CHORUS = 7
-    CELESTE = 8
-    FLANGER = 9
-
 
 class HarmonyType(EffectTypeEnum):
     DUET = 1
@@ -88,6 +60,84 @@ class HarmonyType(EffectTypeEnum):
     ECHO1_16 = 24
     ECHO1_24 = 25
     ECHO1_32 = 26
+
+# This is a really ugly way to do it, but it works.
+
+def _assign_lookup_dicts(cls, table):
+    cls.b_dict = {t: b for t, b in table}
+    cls.t_dict = {b: t for t, b in table}
+
+class ReverbChorusTypeEnum(EffectTypeEnum):
+    def to_b(self):
+        return self.b_dict[self]
+
+    @classmethod
+    def from_b(cls, msb, lsb):
+        try:
+            val = cls.t_dict[msb, lsb]
+        except KeyError:
+            try:
+                val = cls.t_dict[msb, 0x00]
+            except KeyError:
+                val = cls.t_dict[0x00, 0x00]
+        return val
+
+
+class ReverbType(ReverbChorusTypeEnum):
+    HALL1 = 1
+    HALL2 = 2
+    HALL3 = 3
+    ROOM1 = 4
+    ROOM2 = 5
+    STAGE1 = 6
+    STAGE2 = 7
+    PLATE1 = 8
+    PLATE2 = 9
+    OFF = 10
+    ROOM = 11
+    STAGE = 12
+    PLATE = 13
+
+_assign_lookup_dicts(ReverbType, (
+    (ReverbType.OFF,    (0x00, 0x00)),
+    (ReverbType.HALL1,  (0x01, 0x00)),
+    (ReverbType.HALL2,  (0x01, 0x10)),
+    (ReverbType.HALL3,  (0x01, 0x11)),
+    (ReverbType.ROOM,   (0x02, 0x00)),
+    (ReverbType.ROOM1,  (0x02, 0x11)),
+    (ReverbType.ROOM2,  (0x02, 0x13)),
+    (ReverbType.STAGE,  (0x03, 0x00)),
+    (ReverbType.STAGE1, (0x03, 0x10)),
+    (ReverbType.STAGE2, (0x03, 0x11)),
+    (ReverbType.PLATE,  (0x04, 0x00)),
+    (ReverbType.PLATE1, (0x04, 0x10)),
+    (ReverbType.PLATE2, (0x04, 0x11)),
+))
+
+
+
+class ChorusType(ReverbChorusTypeEnum):
+    CHORUS1 = 1
+    CHORUS2 = 2
+    FLANGER1 = 3
+    FLANGER2 = 4
+    OFF = 5
+    THRU = 6
+    CHORUS = 7
+    CELESTE = 8
+    FLANGER = 9
+
+_assign_lookup_dicts(ChorusType, (
+    (ChorusType.OFF, (0x00, 0x00)),
+    (ChorusType.THRU, (0x40, 0x00)),
+    (ChorusType.CHORUS, (0x41, 0x00)),
+    (ChorusType.CHORUS2, (0x41, 0x02)),
+    (ChorusType.CELESTE, (0x42, 0x00)),
+    (ChorusType.FLANGER, (0x43, 0x00)),
+    (ChorusType.FLANGER1, (0x43, 0x08)),
+    (ChorusType.FLANGER2, (0x43, 0x11)),
+))
+
 
 # NOTES = ("C", "Db", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B")
 
