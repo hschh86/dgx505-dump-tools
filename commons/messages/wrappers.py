@@ -73,61 +73,15 @@ class WrappedMIDIMasterTuning(WrappedSysEx):
 class WrappedReverbChorus(WrappedSysEx):
     # Reverb Type, F0 43 1n 4C 02 01 00 mm ll F7
     # Chorus Type, F0 43 1n 4C 02 01 20 mm ll F7
-    TABLE = (None, {})
-   
+    REGEX = re.compile(rb'\x43[\x10-\x1F]\x4C\x02\x01\x00([\x00\x20]..)', re.S)
     def _process(self, match):
-        self.msb, self.lsb = match.group(1)
-        m_default, m_mapping = self.TABLE
-        try:
-            l_default, l_mapping = m_mapping[self.msb]
-        except KeyError:
-            self.value = m_default
-        else:
-            self.value = l_mapping.get(self.lsb, l_default)
-
-
-class WrappedReverbType(WrappedReverbChorus):
-    # Reverb Type, F0 43 1n 4C 02 01 00 mm ll F7
-    type = "reverb"
-    REGEX = re.compile(rb'\x43[\x10-\x1F]\x4C\x02\x01\x00\x00(..)', re.S)
-    TABLE = (ReverbType.OFF, {
-        0x01: (ReverbType.HALL1, {
-            0x10: ReverbType.HALL2,
-            0x11: ReverbType.HALL3,
-        }),
-        0x02: (ReverbType.ROOM, {
-            0x11: ReverbType.ROOM1,
-            0x13: ReverbType.ROOM2,
-        }),
-        0x03: (ReverbType.STAGE, {
-            0x10: ReverbType.STAGE1,
-            0x11: ReverbType.STAGE2,
-        }),
-        0x04: (ReverbType.PLATE, {
-            0x10: ReverbType.PLATE1,
-            0x11: ReverbType.PLATE2,
-        }),
-    })
-
-
-class WrappedChorusType(WrappedReverbChorus):
-    # Chorus Type, F0 43 1n 4C 02 01 20 mm ll F7
-    type = "chorus"
-    REGEX = re.compile(rb'\x43[\x10-\x1F]\x4C\x02\x01\x00\x20(..)', re.S)
-    TABLE = (ChorusType.OFF, {
-        0x40: (ChorusType.THRU, {}),
-        0x41: (ChorusType.CHORUS, {
-            0x02: ChorusType.CHORUS2
-        }),
-        0x42: (ChorusType.CELESTE, {
-            0x11: ChorusType.CHORUS1
-        }),
-        0x43: (ChorusType.FLANGER, {
-            0x08: ChorusType.FLANGER1,
-            0x11: ChorusType.FLANGER2
-        })
-    })
-
+        cat, self.msb, self.lsb = match.group(1)
+        if cat == 0x00:
+            self.type = "reverb"
+            self.value = ReverbType.from_b(self.msb, self.lsb)
+        elif cat == 0x20:
+            self.type = "chorus"
+            self.value = ChorusType.from_b(self.msb, self.lsb)
 
 
 def wrap_sysex(message):
@@ -136,7 +90,7 @@ def wrap_sysex(message):
     data = bytes(message.data)
     # Match one by one
     for sysex_class in (WrappedGMSystemOn, WrappedMIDIMasterVolume,
-            WrappedMIDIMasterTuning, WrappedReverbType, WrappedChorusType):
+            WrappedMIDIMasterTuning, WrappedReverbChorus):
         match = sysex_class.REGEX.fullmatch(data)
         if match is not None:
             return sysex_class(message, match)
@@ -192,5 +146,4 @@ def wrap(message):
         return wrap_sysex(message)
     else:
         return WrappedMessage(message)
-
-
+        
