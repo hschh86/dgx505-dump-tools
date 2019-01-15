@@ -35,6 +35,7 @@ import re
 
 from ..util import assert_low
 from .controls import control_nums, control_names
+from . import wrappers
 
 # some control numbers
 BANK_MSB = control_nums['bank_msb']
@@ -47,12 +48,6 @@ DATA_INC = control_nums['data_inc']
 DATA_DEC = control_nums['data_dec']
 RESET_CONTROLS = control_nums['reset_controls']
 LOCAL = control_nums['local']
-
-# sysex regular expressions
-GM_ON = re.compile(rb'\x7E\x7F\x09\x01\xF7')
-M_VOL = re.compile(rb'\x7F\x7F\x04\x01.(.)', re.S)
-M_TUNE = re.compile(rb'\x43[\x10-\x1F]\x27\x30\x00\x00(..).', re.S)
-REVERB_CHORUS = re.compile(rb'\x43[\x10-\x1F]\x4C\x02\x01\x00([\x00\x20]..)', re.S)
 
 
 class ChannelState(object):
@@ -150,55 +145,30 @@ class MidiControlState(object):
         """
         Feed a mido message into the object, updating the internal state.
         """
-        if msg.type == 'program_change':
+        wrapped = wrappers.wrap(msg)
+
+        if wrapped.type == 'program_change':
             # pass the program through
             self._channels[msg.channel].set_program(msg.program)
-        elif msg.type == 'control_change':
+        elif wrapped.message.type == 'control_change':
             # is it a LOCAL?
-            if msg.control == LOCAL:
-                # highest bit: 1 for ON, 0 for OFF.
-                self._local = msg.value >= 64
+            if wrapped.type == "local":
+                self._local = wrapped.local
             # pass it through anyway
             self._channels[msg.channel].set_control(msg.control, msg.value)
-        elif msg.type == 'sysex':
-            # Put the data into a bytes object so we can regex it
-            data = bytes(msg.data)
-            # GM System ON, F0 7E 7F 09 01 F7
-            if GM_ON.fullmatch(data):
-                # GM_ON.
-                # TODO: Find a way to reset to default values.
-                # whatever they are.
-                self.gm_reset()
-                return
-            # MIDI Master Volume, F0 7F 7F 04 01 ** mm F7
-            match = M_VOL.fullmatch(data)
-            if match is not None:
-                value, = match.group(1)
-                self._master_vol = value
-                return
-            # MIDI Master Tuning, F0 43 1* 27 30 00 00 *m *l ** F7
-            match = M_TUNE.fullmatch(data)
-            if match is not None:
-                # master tuning.
-                msb, lsb = match.group(1)
-                # we take the least significant nybble of each.
-                ml = ((msb & 0xF) << 4) | (lsb & 0xF)
-                # subtract 0x80 and clamp to range -100 +100
-                value = max(-100, min(ml-0x80, +100))
-                self._master_tune = value
-                return
-            # Reverb Type, F0 43 1n 4C 02 01 00 mm ll F7
-            # Chorus Type, F0 43 1n 4C 02 01 20 mm ll F7
-            match = REVERB_CHORUS.fullmatch(data)
-            if match is not None:
-                category, msb, lsb = match.group(1)
-                if category == 0x00:
-                    # Reverb
-                    self._reverb = msb, lsb
-                elif category == 0x20:
-                    # Chorus
-                    self._chorus = msb, lsb
-                return
+        elif wrapped.type == "gm_on":
+            # TODO: Find a way to reset to default values.
+            # whatever they are.
+            self.gm_reset()
+        elif wrapped.type == "master_vol":
+            self._master_vol = wrapped.value
+        elif wrapped.type == "master_tune":
+            self._master_tune = wrapped.value
+        elif wrapped.type == "reverb":
+            self._reverb = wrapped.msb, wrapped.lsb
+        elif wrapped.type == "chorus":
+            self._chorus = wrapped.msb, wrapped.lsb
+
     
     def gm_reset(self):
         # TODO: What are the default values?

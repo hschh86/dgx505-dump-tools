@@ -42,7 +42,14 @@ RPN_TABLE = (
     ("pitch_bend_range",  (0x00, 0x00), "Pitch Bend Range"),
     ("fine_tune",         (0x00, 0x01), "Channel Fine Tuning"),
     ("coarse_tune",       (0x00, 0x02), "Channel Coarse Tuning"),
-    ("null",              (0x7F, 0x7F), "Null")
+    ("null",              (0x7F, 0x7F), "Null"),
+)
+SYSEX_TABLE = (
+    ("gm_on",         "GM System ON"),
+    ("master_vol",    "MIDI Master Volume"),
+    ("master_tune",   "MIDI Master Tuning"),
+    ("reverb",        "Reverb Type"),
+    ("chorus",        "Chorus Type"),
 )
 
 control_nums = {short: num for short, num, _ in CONTROL_TABLE}
@@ -61,16 +68,16 @@ def chorus(msb, lsb):
         'sysex', data=(0x43, 0x10, 0x4c, 0x02, 0x01, 0x20, msb, lsb))
 
 
-def master_tuning(mm, ll):
+def master_tune(mm, ll):
     return mido.Message(
         'sysex', data=(0x43, 0x10, 0x27, 0x30, 0x00, 0x00, mm, ll, 0x00))
 
 
-def master_tuning_val(value):
+def master_tune_val(value):
     if not (-100 <= value <= 100):
         raise ValueError("Value out of range: {}".format(value))
     mm, ll = divmod(value + 128, 16)
-    return master_tuning(mm, ll)
+    return master_tune(mm, ll)
 
 
 def master_volume(mm):
@@ -78,7 +85,7 @@ def master_volume(mm):
         'sysex', data=(0x7F, 0x7F, 0x04, 0x01, 0x00, mm))
 
 
-def gm_system_on():
+def gm_on():
     return mido.Message(
         'sysex', data=(0x7E, 0x7F, 0x09, 0x01))
 
