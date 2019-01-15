@@ -1,0 +1,109 @@
+"""
+enums.py
+
+Some Enums.
+"""
+
+import enum
+
+_slash_surrogator = str.maketrans("_", "/")
+_sharp_surrogator = str.maketrans("s", "#")
+
+class EffectTypeEnum(enum.Enum):
+    def __str__(self):
+        top = self.top()
+        if self.value > top:
+            numstring = "---"
+        else:
+            numstring = "{0:0{1}d}".format(self.value, len(str(top)))
+        namestring = str.translate(self.name, _slash_surrogator).title()
+        return "{}({})".format(numstring, namestring)
+
+    @classmethod
+    def top(cls):
+        try:
+            top = cls.OFF.value
+        except AttributeError:
+            top = len(cls.__members__)
+        return top
+
+    def d_value(self):
+        if self.value > self.top():
+            return None
+        return self.value
+
+    
+
+class ReverbType(EffectTypeEnum):
+    HALL1 = 1
+    HALL2 = 2
+    HALL3 = 3
+    ROOM1 = 4
+    ROOM2 = 5
+    STAGE1 = 6
+    STAGE2 = 7
+    PLATE1 = 8
+    PLATE2 = 9
+    OFF = 10
+    ROOM = 11
+    STAGE = 12
+    PLATE = 13
+
+class ChorusType(EffectTypeEnum):
+    CHORUS1 = 1
+    CHORUS2 = 2
+    FLANGER1 = 3
+    FLANGER2 = 4
+    OFF = 5
+    THRU = 6
+    CHORUS = 7
+    CELESTE = 8
+    FLANGER = 9
+
+
+class HarmonyType(EffectTypeEnum):
+    DUET = 1
+    TRIO = 2
+    BLOCK = 3
+    COUNTRY = 4
+    OCTAVE = 5
+    TRILL1_4 = 6
+    TRILL1_6 = 7
+    TRILL1_8 = 8
+    TRILL1_12 = 9
+    TRILL1_16 = 10
+    TRILL1_24 = 11
+    TRILL1_32 = 12
+    TREMOLO1_4 = 13
+    TREMOLO1_6 = 14
+    TREMOLO1_8 = 15
+    TREMOLO1_12 = 16
+    TREMOLO1_16 = 17
+    TREMOLO1_24 = 18
+    TREMOLO1_32 = 19
+    ECHO1_4 = 20
+    ECHO1_6 = 21
+    ECHO1_8 = 22
+    ECHO1_12 = 23
+    ECHO1_16 = 24
+    ECHO1_24 = 25
+    ECHO1_32 = 26
+
+# NOTES = ("C", "Db", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B")
+
+class Notes(enum.Enum):
+    C = 0
+    Db = 1
+    D = 2
+    Eb = 3
+    E = 4
+    F = 5
+    Fs = 6
+    G = 7
+    Gs = 8
+    A = 9
+    Bb = 10
+    B = 11
+
+    def __str__(self):
+        return str.translate(self.name, _sharp_surrogator)
