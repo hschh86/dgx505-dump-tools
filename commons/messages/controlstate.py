@@ -7,7 +7,7 @@ Keeping track of the control messages!
 # We want to keep track of the state of the controls.
 # purely as a visual aid.
 # In theory, we feed in the messages to both an actual MIDI instrument
-# and this module helpfully keeps track of what the 
+# and this module helpfully keeps track of what the
 # instrument sees.
 
 # We don't need to keep track of everything, just the interesting bits:
@@ -15,7 +15,7 @@ Keeping track of the control messages!
 # No need for every single note!
 
 # There are 16 channels. Humans read them as 1 to 16, but internally
-# they're 0 to 15, or 0x0 to 0xF. 
+# they're 0 to 15, or 0x0 to 0xF.
 
 # Each channel has 128 controls that can be set,
 # each with a value from 0 to 127.
@@ -34,20 +34,20 @@ Keeping track of the control messages!
 import re
 
 from ..util import assert_low
-from .controls import control_nums, control_names
+from .controls import controls
 from . import wrappers
 
 # some control numbers
-BANK_MSB = control_nums['bank_msb']
-BANK_LSB = control_nums['bank_lsb']
-RPN_MSB = control_nums['rpn_msb']
-RPN_LSB = control_nums['rpn_lsb']
-DATA_MSB = control_nums['data_msb']
-DATA_LSB = control_nums['data_lsb']
-DATA_INC = control_nums['data_inc']
-DATA_DEC = control_nums['data_dec']
-RESET_CONTROLS = control_nums['reset_controls']
-LOCAL = control_nums['local']
+BANK_MSB = controls.num['bank_msb']
+BANK_LSB = controls.num['bank_lsb']
+RPN_MSB = controls.num['rpn_msb']
+RPN_LSB = controls.num['rpn_lsb']
+DATA_MSB = controls.num['data_msb']
+DATA_LSB = controls.num['data_lsb']
+DATA_INC = controls.num['data_inc']
+DATA_DEC = controls.num['data_dec']
+RESET_CONTROLS = controls.num['reset_controls']
+LOCAL = controls.num['local']
 
 
 class ChannelState(object):
@@ -75,7 +75,7 @@ class ChannelState(object):
         self._bank_program = (None, None, None)
         # Bank MSB, Bank LSB, Program, as bytes.
         # and that's basically it.
-    
+
     def bank(self):
         return self._controls[BANK_MSB], self._controls[BANK_LSB]
 
@@ -84,7 +84,7 @@ class ChannelState(object):
 
     def bank_program(self):
         return self._bank_program
-    
+
     def set_program(self, value):
         assert_low(value)
 
@@ -92,7 +92,7 @@ class ChannelState(object):
         # and the program.
 
         self._bank_program = (*self.bank(), value)
-    
+
     def set_control(self, control_num, value):
         # control_num and value should be integers 0-127
         assert_low(control_num)
@@ -117,9 +117,13 @@ class ChannelState(object):
 
     def get_rpn_data(self, msb, lsb):
         return self._data_msb[msb, lsb], self._data_lsb[msb, lsb]
-    
+
     def data(self):
         return self.get_rpn_data(*self.rpn())
+
+    def control_value(self, control_name):
+        num = controls.num[control_name]
+        return self._controls[num]
 
 
 class MidiControlState(object):
@@ -153,7 +157,7 @@ class MidiControlState(object):
         elif wrapped.message.type == 'control_change':
             # is it a LOCAL?
             if wrapped.type == "local":
-                self._local = wrapped.local
+                self._local = wrapped.value
             # pass it through anyway
             self._channels[msg.channel].set_control(msg.control, msg.value)
         elif wrapped.type == "gm_on":
@@ -169,7 +173,7 @@ class MidiControlState(object):
         elif wrapped.type == "chorus":
             self._chorus = wrapped.msb, wrapped.lsb
 
-    
+
     def gm_reset(self):
         # TODO: What are the default values?
 

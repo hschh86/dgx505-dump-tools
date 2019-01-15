@@ -8,7 +8,27 @@ import mido
 
 from . import voices
 
-CONTROL_TABLE = (
+from ..util import lazy_property
+
+
+class TripleTable(object):
+    def __init__(self, *args):
+        self._short, self._num, self._name = zip(*args)
+
+    @lazy_property
+    def num(self):
+        return dict(zip(self._short, self._num))
+
+    @lazy_property
+    def short(self):
+        return dict(zip(self._num, self._short))
+
+    @lazy_property
+    def name(self):
+        return dict(zip(self._num, self._name))
+
+
+controls = TripleTable(
     ("bank_msb",           0x00, "Bank MSB"),
     ("bank_lsb",           0x32, "Bank LSB"),
     ("volume",             0x07, "Voice Volume"),
@@ -38,32 +58,28 @@ CONTROL_TABLE = (
     ("reset_controls",     0x79, "Reset All Controls"),
     ("local",              0x7A, "Local ON/OFF"),
 )
-RPN_TABLE = (
+rpns = TripleTable(
     ("pitch_bend_range",  (0x00, 0x00), "Pitch Bend Range"),
     ("fine_tune",         (0x00, 0x01), "Channel Fine Tuning"),
     ("coarse_tune",       (0x00, 0x02), "Channel Coarse Tuning"),
     ("null",              (0x7F, 0x7F), "Null"),
 )
+
 SYSEX_TABLE = (
     ("gm_on",         "GM System ON"),
     ("master_vol",    "MIDI Master Volume"),
     ("master_tune",   "MIDI Master Tuning"),
-    ("reverb",        "Reverb Type"),
-    ("chorus",        "Chorus Type"),
+    ("reverb_type",   "Reverb Type"),
+    ("chorus_type",   "Chorus Type"),
 )
 
-control_nums = {short: num for short, num, _ in CONTROL_TABLE}
-control_names = {num: name for _, num, name in CONTROL_TABLE}
-rpn_nums = {short: num for short, num, _ in RPN_TABLE}
-rpn_names = {num: name for _, num, name in RPN_TABLE}
 
-
-def reverb(msb, lsb):
+def reverb_type(msb, lsb):
     return mido.Message(
         'sysex', data=(0x43, 0x10, 0x4c, 0x02, 0x01, 0x00, msb, lsb))
 
 
-def chorus(msb, lsb):
+def chorus_type(msb, lsb):
     return mido.Message(
         'sysex', data=(0x43, 0x10, 0x4c, 0x02, 0x01, 0x20, msb, lsb))
 
@@ -80,7 +96,7 @@ def master_tune_val(value):
     return master_tune(mm, ll)
 
 
-def master_volume(mm):
+def master_vol(mm):
     return mido.Message(
         'sysex', data=(0x7F, 0x7F, 0x04, 0x01, 0x00, mm))
 
@@ -92,7 +108,7 @@ def gm_on():
 
 def control(name, value, channel=0):
     return mido.Message(
-        'control_change', control=control_nums[name], value=value, channel=channel)
+        'control_change', control=controls.num[name], value=value, channel=channel)
 
 
 def local(boolean):
@@ -111,7 +127,7 @@ def set_rpn(msb=0x7F, lsb=0x7F, channel=0):
 
 
 def set_rpn_names(name, channel=0):
-    msb, lsb = rpn_nums[name]
+    msb, lsb = rpns.num[name]
     return set_rpn(msb, lsb, channel=channel)
 
 
@@ -131,4 +147,3 @@ def set_voice_numbers(voice_number, channel=0):
 def multisend(port, messages):
     for message in messages:
         port.send(message)
-

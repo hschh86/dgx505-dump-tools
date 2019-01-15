@@ -139,6 +139,14 @@ _assign_lookup_dicts(ChorusType, (
 ))
 
 
+class SwitchBool(enum.Enum):
+    ON = True
+    OFF = False
+
+    def __str__(self):
+        return self.name
+
+
 # NOTES = ("C", "Db", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B")
 
 class Notes(enum.Enum):
