@@ -16,7 +16,7 @@ class _RegLookup(object):
     PAD_MAP = BytesAssertMap(b'\x00\x00')
     NUMBER_MAP = RangeMap()
     VOICE_MAP = RangeMap(1, 494, +1)
-    OCTAVE_MAP = RangeMap(-2, +2, format="1d")
+    OCTAVE_MAP = RangeMap(-2, +2, format_string="1d")
     SPLIT_MAP = KeyMap()
     REVERB_MAP = {
         1:  (1,    "01(Hall1)"),
@@ -131,7 +131,7 @@ class _RegLookup(object):
         ("D. Reverb Level",     "b",    NUMBER_MAP),
         ("D. Chorus Level",     "b",    NUMBER_MAP),
         # Pitch, Reverb, Chorus
-        ("Pitch Bend Range",    "b",    RangeMap(1, 12, format="02d")),
+        ("Pitch Bend Range",    "b",    RangeMap(1, 12, format_string="02d")),
         ("Reverb Type",         "B",    REVERB_MAP),
         ("Chorus Type",         "B",    CHORUS_MAP),
         # Harmony
@@ -141,7 +141,7 @@ class _RegLookup(object):
         # ff
         ("_ff byte",            "1s",   BytesAssertMap(b'\xFF')),
         # Transpose & Tempo
-        ("Transpose",           "B",    RangeMap(-12, +12, -12, format="02d")),
+        ("Transpose",           "B",    RangeMap(-12, +12, -12, format_string="02d")),
         ("Tempo",               "B",    RangeMap(32, 280, +32, 0xFF, "3d")),
         # 00 00
         ("_pad 1",              "2s",   PAD_MAP),
