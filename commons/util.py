@@ -13,16 +13,16 @@ import collections.abc
 YAMAHA = 0x43
 
 
-# eprint
-def eprint(*args, **kwargs):
-    """Print to stderr."""
-    print(*args, file=sys.stderr, **kwargs)
+# # eprint
+# def eprint(*args, **kwargs):
+#     """Print to stderr."""
+#     print(*args, file=sys.stderr, **kwargs)
 
 
-# dummy
-def nop(*args, **kwargs):
-    """Does nothing."""
-    pass
+# # dummy
+# def nop(*args, **kwargs):
+#     """Does nothing."""
+#     pass
 
 
 # slicing and iteration
