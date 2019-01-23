@@ -11,7 +11,7 @@ displaying and working with control and sysex messages.
 # Should these be wrappers, subclasses, or entirely different???
 import re
 
-from .controls import controls
+from .controls import Control
 from ..enums import ReverbType, ChorusType, SwitchBool
 
 class WrappedMessage(object):
@@ -118,8 +118,8 @@ class WrappedControlChange(WrappedMessage):
         self.control_value = message.value
 
         try:
-            self.type = controls.short[self.control_num]
-        except KeyError:
+            self.type = Control(self.control_num).name.lower()
+        except ValueError:
             self.type = "control_{}".format(self.control_num)
 
         self._process()
@@ -132,7 +132,7 @@ class WrappedControlChange(WrappedMessage):
 
 
 class WrappedHighBoolean(WrappedControlChange):
-    TYPES = {controls.num[name] for name in ("local", "pedal")}
+    TYPES = {Control.LOCAL, Control.PEDAL}
     def _process(self):
         # highest bit: 1 for ON, 0 for OFF.
         self.value = SwitchBool(self.control_value >= 64)

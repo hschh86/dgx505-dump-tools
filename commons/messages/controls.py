@@ -4,6 +4,7 @@ controls.py
 For working with the controls / sysex / etc midi messages
 """
 
+import enum
 import mido
 
 from . import voices
@@ -11,67 +12,91 @@ from . import voices
 from ..util import lazy_property
 
 
-class TripleTable(object):
-    def __init__(self, *args):
-        self._short, self._num, self._name = zip(*args)
+class Control(enum.IntEnum):
+    BANK_MSB = 0x00
+    BANK_LSB = 0x32
+    VOLUME = 0x07
+    PAN = 0x0A
+    REVERB = 0x5B
+    CHORUS = 0x5D
+    PEDAL = 0x40
+    RELEASE = 0x48
+    MODULATION = 0x01
+    EXPRESSION = 0x0B
+    PORTAMENTO_CTRL = 0x54
+    HARMONIC = 0x47
+    ATTACK = 0x49
+    BRIGHTNESS = 0x4A
+    RPN_MSB = 0x65
+    RPN_LSB = 0x64
+    DATA_MSB = 0x06
+    DATA_LSB = 0x26
+    DATA_INC = 0x60
+    DATA_DEC = 0x61
+    SOUND_OFF = 0x78
+    SOUND_OFF_XMONO = 0x7E
+    SOUND_OFF_XPOLY = 0x7F
+    NOTES_OFF = 0x7B
+    NOTES_OFF_XOMNIOFF = 0x7C
+    NOTES_OFF_XOMNION = 0x7D
+    RESET_CONTROLS = 0x79
+    LOCAL = 0x7A
 
-    @lazy_property
-    def num(self):
-        return dict(zip(self._short, self._num))
 
-    @lazy_property
-    def short(self):
-        return dict(zip(self._num, self._short))
-
-    @lazy_property
-    def name(self):
-        return dict(zip(self._num, self._name))
+class Rpn(tuple, enum.Enum):
+    PITCH_BEND_RANGE = (0x00, 0x00)
+    FINE_TUNE = (0x00, 0x01)
+    COARSE_TUNE = (0x00, 0x02)
+    NULL = (0x7F, 0x7F)
 
 
-controls = TripleTable(
-    ("bank_msb",           0x00, "Bank MSB"),
-    ("bank_lsb",           0x32, "Bank LSB"),
-    ("volume",             0x07, "Voice Volume"),
-    ("pan",                0x0A, "Voice Pan"),
-    ("reverb",             0x5B, "Voice Reverb Level"),
-    ("chorus",             0x5D, "Voice Chorus Level"),
-    ("pedal",              0x40, "Pedal Sustain"),
-    ("release",            0x48, "Release Time"),
-    ("modulation",         0x01, "Modulation Wheel"),
-    ("expression",         0x0B, "Expression"),
-    ("portamento_ctrl",    0x54, "Portamento Control"),
-    ("harmonic",           0x47, "Harmonic Content"),
-    ("attack",             0x49, "Attack Time"),
-    ("brightness",         0x4A, "Brightness"),
-    ("rpn_msb",            0x65, "RPN MSB"),
-    ("rpn_lsb",            0x64, "RPN LSB"),
-    ("data_msb",           0x06, "Data Entry MSB"),
-    ("data_lsb",           0x26, "Data Entry LSB"),
-    ("data_inc",           0x60, "Data Increment"),
-    ("data_dec",           0x61, "Data Decrement"),
-    ("sound_off",          0x78, "All Sound OFF"),
-    ("sound_off_xmono",    0x7E, "All Sound OFF (MONO)"),
-    ("sound_off_xpoly",    0x7F, "All Sound OFF (POLY)"),
-    ("notes_off",          0x7B, "All Notes OFF"),
-    ("notes_off_xomnioff", 0x7C, "All Notes OFF (OMNI OFF)"),
-    ("notes_off_xomnion",  0x7D, "All Notes OFF (OMNI ON)"),
-    ("reset_controls",     0x79, "Reset All Controls"),
-    ("local",              0x7A, "Local ON/OFF"),
-)
-rpns = TripleTable(
-    ("pitch_bend_range",  (0x00, 0x00), "Pitch Bend Range"),
-    ("fine_tune",         (0x00, 0x01), "Channel Fine Tuning"),
-    ("coarse_tune",       (0x00, 0x02), "Channel Coarse Tuning"),
-    ("null",              (0x7F, 0x7F), "Null"),
-)
+class SysEx(enum.Enum):
+    GM_ON = "GM System ON"
+    MASTER_VOL = "MIDI Master Volume"
+    MASTER_TUNE = "MIDI Master Tuning"
+    REVERB_TYPE = "Reverb Type"
+    CHORUS_TYPE = "Chorus Type"
 
-SYSEX_TABLE = (
-    ("gm_on",         "GM System ON"),
-    ("master_vol",    "MIDI Master Volume"),
-    ("master_tune",   "MIDI Master Tuning"),
-    ("reverb_type",   "Reverb Type"),
-    ("chorus_type",   "Chorus Type"),
-)
+
+longform = {
+    Control.BANK_MSB:           "Bank MSB",
+    Control.BANK_LSB:           "Bank LSB",
+    Control.VOLUME:             "Voice Volume",
+    Control.PAN:                "Voice Pan",
+    Control.REVERB:             "Voice Reverb Level",
+    Control.CHORUS:             "Voice Chorus Level",
+    Control.PEDAL:              "Pedal Sustain",
+    Control.RELEASE:            "Release Time",
+    Control.MODULATION:         "Modulation Wheel",
+    Control.EXPRESSION:         "Expression",
+    Control.PORTAMENTO_CTRL:    "Portamento Control",
+    Control.HARMONIC:           "Harmonic Content",
+    Control.ATTACK:             "Attack Time",
+    Control.BRIGHTNESS:         "Brightness",
+    Control.RPN_MSB:            "RPN MSB",
+    Control.RPN_LSB:            "RPN LSB",
+    Control.DATA_MSB:           "Data Entry MSB",
+    Control.DATA_LSB:           "Data Entry LSB",
+    Control.DATA_INC:           "Data Increment",
+    Control.DATA_DEC:           "Data Decrement",
+    Control.SOUND_OFF:          "All Sound OFF",
+    Control.SOUND_OFF_XMONO:    "All Sound OFF (MONO)",
+    Control.SOUND_OFF_XPOLY:    "All Sound OFF (POLY)",
+    Control.NOTES_OFF:          "All Notes OFF",
+    Control.NOTES_OFF_XOMNIOFF: "All Notes OFF (OMNI OFF)",
+    Control.NOTES_OFF_XOMNION:  "All Notes OFF (OMNI ON)",
+    Control.RESET_CONTROLS:     "Reset All Controls",
+    Control.LOCAL:              "Local ON/OFF",
+    Rpn.PITCH_BEND_RANGE:       "Pitch Bend Range",
+    Rpn.FINE_TUNE:              "Channel Fine Tuning",
+    Rpn.COARSE_TUNE:            "Channel Coarse Tuning",
+    Rpn.NULL:                   "Null",
+    SysEx.GM_ON:                "GM System ON",
+    SysEx.MASTER_VOL:           "MIDI Master Volume",
+    SysEx.MASTER_TUNE:          "MIDI Master Tuning",
+    SysEx.REVERB_TYPE:          "Reverb Type",
+    SysEx.CHORUS_TYPE:          "Chorus Type"
+}
 
 
 def reverb_type(msb, lsb):
@@ -106,9 +131,9 @@ def gm_on():
         'sysex', data=(0x7E, 0x7F, 0x09, 0x01))
 
 
-def control(name, value, channel=0):
+def cc(control, value, channel=0):
     return mido.Message(
-        'control_change', control=controls.num[name], value=value, channel=channel)
+        'control_change', control=control, value=value, channel=channel)
 
 
 def local(boolean):
@@ -116,25 +141,21 @@ def local(boolean):
         val = 0x7F
     else:
         val = 0x00
-    return control('local', value=val)
+    return cc(Control.LOCAL, value=val)
 
 
-def set_rpn(msb=0x7F, lsb=0x7F, channel=0):
+def set_rpn(rpn=Rpn.NULL, channel=0):
+    msb, lsb = rpn
     return [
-        control('rpn_msb', value=msb, channel=channel),
-        control('rpn_lsb', value=lsb, channel=channel)
+        cc(Control.RPN_MSB, value=msb, channel=channel),
+        cc(Control.RPN_LSB, value=lsb, channel=channel)
     ]
-
-
-def set_rpn_names(name, channel=0):
-    msb, lsb = rpns.num[name]
-    return set_rpn(msb, lsb, channel=channel)
 
 
 def set_bank_program(msb, lsb, program, channel=0):
     return [
-        control('bank_msb', value=msb, channel=channel),
-        control('bank_lsb', value=lsb, channel=channel),
+        cc(Control.BANK_MSB, value=msb, channel=channel),
+        cc(Control.BANK_LSB, value=lsb, channel=channel),
         mido.Message('program_change', program=program, channel=channel)
     ]
 

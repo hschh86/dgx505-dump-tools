@@ -33,21 +33,10 @@ Keeping track of the control messages!
 
 import re
 
+from ..enums import ChorusType, ReverbType
 from ..util import assert_low
-from .controls import controls
+from .controls import Control
 from . import wrappers
-
-# some control numbers
-BANK_MSB = controls.num['bank_msb']
-BANK_LSB = controls.num['bank_lsb']
-RPN_MSB = controls.num['rpn_msb']
-RPN_LSB = controls.num['rpn_lsb']
-DATA_MSB = controls.num['data_msb']
-DATA_LSB = controls.num['data_lsb']
-DATA_INC = controls.num['data_inc']
-DATA_DEC = controls.num['data_dec']
-RESET_CONTROLS = controls.num['reset_controls']
-LOCAL = controls.num['local']
 
 
 class ChannelState(object):
@@ -77,10 +66,10 @@ class ChannelState(object):
         # and that's basically it.
 
     def bank(self):
-        return self._controls[BANK_MSB], self._controls[BANK_LSB]
+        return self._controls[Control.BANK_MSB], self._controls[Control.BANK_LSB]
 
     def rpn(self):
-        return self._controls[RPN_MSB], self._controls[RPN_LSB]
+        return self._controls[Control.RPN_MSB], self._controls[Control.RPN_LSB]
 
     def bank_program(self):
         return self._bank_program
@@ -101,14 +90,14 @@ class ChannelState(object):
         self._controls[control_num] = value
 
         # Now we need to deal with rpn, for the data entry controls
-        if control_num == DATA_MSB:
+        if control_num == Control.DATA_MSB:
             self._data_msb[self.rpn()] = value
-        elif control_num == DATA_LSB:
+        elif control_num == Control.DATA_LSB:
             self._data_lsb[self.rpn()] = value
-        elif control_num == DATA_INC or control_num == DATA_DEC:
+        elif control_num == Control.DATA_INC or control_num == Control.DATA_DEC:
             rpn = self.rpn()
             msb = self._data_msb[rpn]
-            if control_num == DATA_INC:
+            if control_num == Control.DATA_INC:
                 if msb < 0x7F:
                     self._data_msb[rpn] = msb+1
             else:
@@ -122,7 +111,7 @@ class ChannelState(object):
         return self.get_rpn_data(*self.rpn())
 
     def control_value(self, control_name):
-        num = controls.num[control_name]
+        num = Control[control_name]
         return self._controls[num]
 
 
@@ -169,9 +158,9 @@ class MidiControlState(object):
         elif wrapped.type == "master_tune":
             self._master_tune = wrapped.value
         elif wrapped.type == "reverb":
-            self._reverb = wrapped.msb, wrapped.lsb
+            self._reverb = wrapped.value
         elif wrapped.type == "chorus":
-            self._chorus = wrapped.msb, wrapped.lsb
+            self._chorus = wrapped.value
 
 
     def gm_reset(self):
@@ -182,7 +171,7 @@ class MidiControlState(object):
 
         # Reverb type is set to (01)Hall1
         # This would be 01 00
-        self._reverb = 0x01, 0x00
+        self._reverb = ReverbType.HALL1
         # Chorus type is set to (---)Chorus
         # I guess this would be 41 00
-        self._chorus = 0x41, 0x00
+        self._chorus = ChorusType.CHORUS
