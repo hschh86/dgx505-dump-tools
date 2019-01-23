@@ -7,45 +7,57 @@ voices.py
 import collections
 
 from . import table_util
-
+from .. import util
 
 Voice = collections.namedtuple("Voice",
                                "number name category msb lsb prog")
 
 
-def _initialise_dicts():
-    _numbers = {}
-    _bank_programs = {}
-    _names_nonxg = {}
-    _names_xg = {}
-    # read in data from csv file
-    _creader = table_util.read_csv_table('tables/voices.csv')
-    next(_creader)  # Throw away the header
-    for number_s, name, category, msb_s, lsb_s, prog_s in _creader:
-        # convert strings to ints
-        number, msb, lsb, prog = map(int, (number_s, msb_s, lsb_s, prog_s))
-        # construct Voice tuple
-        voice = Voice(number, name, category, msb, lsb, prog)
-        # assign to dictionaries
-        _numbers[number] = voice
-        _bank_programs[(msb, lsb, prog)] = voice
-        if category.startswith("XG"):
-            _names_xg[name] = voice
-        else:
-            _names_nonxg[name] = voice
+# Useless Class Strikes Again
 
-    # check we have everything
-    assert (len(_numbers)
-            == len(_bank_programs)
-            == len(_names_nonxg) + len(_names_xg))
+class _VoiceLookup(object):
 
-    return (_numbers, _bank_programs, _names_nonxg, _names_xg)
+    DictTuple = collections.namedtuple("DictTuple",
+        "numbers bank_programs names_nonxg names_xg")
+    
+    @util.lazy_property
+    def dicts(self):
+        _numbers = {}
+        _bank_programs = {}
+        _names_nonxg = {}
+        _names_xg = {}
+        # read in data from csv file
+        _creader = table_util.read_csv_table('tables/voices.csv')
+        next(_creader)  # Throw away the header
+        for number_s, name, category, msb_s, lsb_s, prog_s in _creader:
+            # convert strings to ints
+            number, msb, lsb, prog = map(int, (number_s, msb_s, lsb_s, prog_s))
+            # construct Voice tuple
+            voice = Voice(number, name, category, msb, lsb, prog)
+            # assign to dictionaries
+            _numbers[number] = voice
+            _bank_programs[(msb, lsb, prog)] = voice
+            if category.startswith("XG"):
+                _names_xg[name] = voice
+            else:
+                _names_nonxg[name] = voice
 
+        # check we have everything
+        assert (len(_numbers)
+                == len(_bank_programs)
+                == len(_names_nonxg) + len(_names_xg))
+        
+        return self.DictTuple(_numbers, _bank_programs, _names_nonxg, _names_xg)
 
-_numbers, _bank_programs, _names_nonxg, _names_xg = _initialise_dicts()
-_names_nonxg_first = collections.ChainMap(_names_nonxg, _names_xg)
-_names_xg_first = collections.ChainMap(_names_xg, _names_nonxg)
+    @util.lazy_property
+    def names_nonxg_first(self):
+        return collections.ChainMap(self.dicts.names_nonxg, self.dicts.names_xg)
+    
+    @util.lazy_property
+    def names_xg_first(self):
+        return collections.ChainMap(self.dicts.names_xg, self.dicts.names_nonxg)
 
+_LOOKUP = _VoiceLookup()
 
 def from_name(name, prefer_xg=False):
     """
@@ -56,8 +68,8 @@ def from_name(name, prefer_xg=False):
     KeyError raised if no voice has that name.
     """
     if prefer_xg:
-        return _names_xg_first[name]
-    return _names_nonxg_first[name]
+        return _LOOKUP.names_xg_first[name]
+    return _LOOKUP.names_nonxg_first[name]
 
 
 def from_number(number):
@@ -66,7 +78,7 @@ def from_number(number):
     Returns a Voice namedtuple.
     KeyError raised if no voice has that number.
     """
-    return _numbers[number]
+    return _LOOKUP.dicts.numbers[number]
 
 
 def from_bank_program(msb, lsb, prog):
@@ -78,4 +90,4 @@ def from_bank_program(msb, lsb, prog):
     Returns a Voice namedtuple.
     KeyError raised if no voice has those bytes.
     """
-    return _bank_programs[(msb, lsb, prog)]
+    return _LOOKUP.dicts.bank_programs[(msb, lsb, prog)]
