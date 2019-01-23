@@ -27,15 +27,13 @@ Keeping track of the control messages!
 # for all channels. (so it appears at the instrument level.)
 #  So there's a lot to keep track of.
 
-# (Question: Does order matter? what happens when we change the LSB, then MSB?)
-
 # (For more information consult the DGX505Midi.md document)
 
 import re
 
 from ..enums import ChorusType, ReverbType
 from ..util import assert_low
-from .controls import Control
+from .controls import Control, SysEx
 from . import wrappers
 
 
@@ -81,28 +79,37 @@ class ChannelState(object):
         # and the program.
 
         self._bank_program = (*self.bank(), value)
+        return wrappers.VoiceChange(self._channel, self._bank_program)
 
-    def set_control(self, control_num, value):
+    def set_control(self, wrapped):
         # control_num and value should be integers 0-127
+        control_num = wrapped.message.control
+        value = wrapped.message.value
+
         assert_low(control_num)
         assert_low(value)
 
         self._controls[control_num] = value
 
         # Now we need to deal with rpn, for the data entry controls
-        if control_num == Control.DATA_MSB:
-            self._data_msb[self.rpn()] = value
-        elif control_num == Control.DATA_LSB:
-            self._data_lsb[self.rpn()] = value
-        elif control_num == Control.DATA_INC or control_num == Control.DATA_DEC:
+
+        if control_num in {Control.DATA_MSB, Control.DATA_LSB,
+                Control.DATA_INC, Control.DATA_DEC}:
             rpn = self.rpn()
-            msb = self._data_msb[rpn]
-            if control_num == Control.DATA_INC:
-                if msb < 0x7F:
-                    self._data_msb[rpn] = msb+1
+            if control_num == Control.DATA_MSB:
+                self._data_msb[rpn] = value
+            elif control_num == Control.DATA_LSB:
+                self._data_lsb[rpn] = value
             else:
-                if msb > 0x00:
-                    self._data_msb[rpn] = msb-1
+                msb = self._data_msb[rpn]
+                if control_num == Control.DATA_INC:
+                    if msb < 0x7F:
+                        self._data_msb[rpn] = msb+1
+                elif control_num == Control.DATA_DEC:
+                    if msb > 0x00:
+                        self._data_msb[rpn] = msb-1
+            return wrappers.DataChange(self._channel, rpn, self.data())
+        return None
 
     def get_rpn_data(self, msb, lsb):
         return self._data_msb[msb, lsb], self._data_lsb[msb, lsb]
@@ -140,27 +147,29 @@ class MidiControlState(object):
         """
         wrapped = wrappers.wrap(msg)
 
-        if wrapped.type == 'program_change':
+        if wrapped.message.type == 'program_change':
             # pass the program through
-            self._channels[msg.channel].set_program(msg.program)
+            return self._channels[msg.channel].set_program(msg.program)
         elif wrapped.message.type == 'control_change':
             # is it a LOCAL?
-            if wrapped.type == "local":
+            if wrapped.message.control == Control.LOCAL:
                 self._local = wrapped.value
             # pass it through anyway
-            self._channels[msg.channel].set_control(msg.control, msg.value)
-        elif wrapped.type == "gm_on":
-            # TODO: Find a way to reset to default values.
-            # whatever they are.
-            self.gm_reset()
-        elif wrapped.type == "master_vol":
-            self._master_vol = wrapped.value
-        elif wrapped.type == "master_tune":
-            self._master_tune = wrapped.value
-        elif wrapped.type == "reverb":
-            self._reverb = wrapped.value
-        elif wrapped.type == "chorus":
-            self._chorus = wrapped.value
+            return self._channels[msg.channel].set_control(wrapped)
+        elif wrapped.message.type == 'sysex':
+            if wrapped.wrap_type is SysEx.GM_ON:
+                # TODO: Find a way to reset to default values.
+                # whatever they are.
+                self.gm_reset()
+            elif wrapped.wrap_type is SysEx.MASTER_VOL:
+                self._master_vol = wrapped.value
+            elif wrapped.wrap_type is SysEx.MASTER_TUNE:
+                self._master_tune = wrapped.value
+            elif wrapped.wrap_type is SysEx.REVERB_TYPE:
+                self._reverb = wrapped.value
+            elif wrapped.wrap_type is SysEx.CHORUS_TYPE:
+                self._chorus = wrapped.value
+            return wrapped
 
 
     def gm_reset(self):

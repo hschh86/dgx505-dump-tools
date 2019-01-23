@@ -11,13 +11,15 @@ displaying and working with control and sysex messages.
 # Should these be wrappers, subclasses, or entirely different???
 import re
 
-from .controls import Control
+from .controls import Control, Rpn, SysEx
 from ..enums import ReverbType, ChorusType, SwitchBool
+from . import voices
 
 class WrappedMessage(object):
     # These are wrapped mido messages.
     # Like normal messages, but with some extra metadata.
     type = "message"
+    wrap_type = None
 
     def __init__(self, message):
         """
@@ -51,6 +53,7 @@ class WrappedSysEx(WrappedMessage):
 class WrappedGMSystemOn(WrappedSysEx):
     # GM System ON, F0 7E 7F 09 01 F7
     type = "gm_on"
+    wrap_type = SysEx.GM_ON
     REGEX = re.compile(rb'\x7E\x7F\x09\x01\xF7', re.S)
 
     def _process(self, match):
@@ -63,6 +66,7 @@ class WrappedGMSystemOn(WrappedSysEx):
 class WrappedMIDIMasterVolume(WrappedSysEx):
     # MIDI Master Volume, F0 7F 7F 04 01 ** mm F7
     type = "master_vol"
+    wrap_type = SysEx.MASTER_VOL
     REGEX = re.compile(rb'\x7F\x7F\x04\x01.(.)', re.S)
     def _process(self, match):
         self.value, = match.group(1)
@@ -71,6 +75,7 @@ class WrappedMIDIMasterVolume(WrappedSysEx):
 class WrappedMIDIMasterTuning(WrappedSysEx):
     # MIDI Master Tuning, F0 43 1* 27 30 00 00 *m *l ** F7
     type = "master_tune"
+    wrap_type = SysEx.MASTER_TUNE
     REGEX = re.compile(rb'\x43[\x10-\x1F]\x27\x30\x00\x00(..).', re.S)
     def _process(self, match):
         self.msb, self.lsb = match.group(1)
@@ -88,9 +93,11 @@ class WrappedReverbChorus(WrappedSysEx):
         cat, self.msb, self.lsb = match.group(1)
         if cat == 0x00:
             self.type = "reverb_type"
+            self.wrap_type = SysEx.REVERB_TYPE
             self.value = ReverbType.from_b(self.msb, self.lsb)
         elif cat == 0x20:
             self.type = "chorus_type"
+            self.wrap_type = SysEx.CHORUS_TYPE
             self.value = ChorusType.from_b(self.msb, self.lsb)
 
 
@@ -117,10 +124,12 @@ class WrappedControlChange(WrappedMessage):
         self.control_num = message.control
         self.control_value = message.value
 
-        try:
-            self.type = Control(self.control_num).name.lower()
+        try: 
+            self.wrap_type = Control(self.control_num)
         except ValueError:
             self.type = "control_{}".format(self.control_num)
+        else:
+            self.type = self.wrap_type.name.lower()
 
         self._process()
 
@@ -131,6 +140,20 @@ class WrappedControlChange(WrappedMessage):
         return "{} channel={} value={}".format(self.type, self.channel, self.value)
 
 
+class WrappedSingle(WrappedControlChange):
+    TYPES = {
+        Control.DATA_INC, Control.DATA_DEC,
+        Control.SOUND_OFF, Control.SOUND_OFF_XMONO, Control.SOUND_OFF_XPOLY,
+        Control.NOTES_OFF, Control.NOTES_OFF_XOMNIOFF, Control.NOTES_OFF_XOMNION
+    }
+    def _process(self):
+        # No use for the value
+        self.value = None
+    
+    def __str__(self):
+        return "{} channel={}".format(self.type, self.channel)
+
+
 class WrappedHighBoolean(WrappedControlChange):
     TYPES = {Control.LOCAL, Control.PEDAL}
     def _process(self):
@@ -139,8 +162,9 @@ class WrappedHighBoolean(WrappedControlChange):
 
 
 def wrap_control(message):
-    if message.control in WrappedHighBoolean.TYPES:
-        return WrappedHighBoolean(message)
+    for control_class in (WrappedSingle, WrappedHighBoolean):
+        if message.control in control_class.TYPES:
+            return control_class(message)
     return WrappedControlChange(message)
 
 
@@ -165,3 +189,52 @@ def wrap(message):
         return wrap_sysex(message)
     else:
         return WrappedMessage(message)
+
+
+class StateChange(object):
+    # This class is for special wrappers in the control-state thing.
+    pass
+
+
+class DataChange(StateChange):
+
+    def __init__(self, channel, rpn, rpn_value):
+        self.rpn = rpn
+        self.rpn_value = rpn_value
+        self.channel = channel
+
+        try:
+            self.wrap_type = Rpn(rpn)
+        except ValueError:
+            self.type = "rpn_{:02X}{:02X}".format(*rpn)
+        else:
+            self.type = self.wrap_type.name.lower()
+
+        self._process()
+    
+    def _process(self):
+        self.value = self.rpn_value
+
+    def __str__(self):
+        return "ch {}, {}, {}".format(self.channel, self.type, self.value)
+
+
+class VoiceChange(DataChange):
+
+    def __init__(self, channel, bank_program):
+        self.channel = channel
+        self.bank_program = bank_program
+    
+        try:
+            self.voice = voices.from_bank_program(*bank_program)
+            self.voice_string = self.voice.voice_string()
+        except KeyError:
+            self.voice = None
+            self.voice_string = str(self.bank_program)
+    
+    def __str__(self):
+        return "ch {}, Voice {}".format(self.channel, self.voice_string)
+
+
+
+

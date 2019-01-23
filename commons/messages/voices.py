@@ -9,8 +9,14 @@ import collections
 from . import table_util
 from .. import util
 
-Voice = collections.namedtuple("Voice",
-                               "number name category msb lsb prog")
+class Voice(collections.namedtuple("Voice",
+        "number name category msb lsb prog")):
+    __slots__ = ()
+
+    def voice_string(self):
+        return "{} {} ({})".format(self.number, self.name, self.category)
+
+    
 
 
 # Useless Class Strikes Again
