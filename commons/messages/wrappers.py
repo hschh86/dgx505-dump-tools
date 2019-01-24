@@ -11,14 +11,13 @@ displaying and working with control and sysex messages.
 # Should these be wrappers, subclasses, or entirely different???
 import re
 
-from .controls import Control, Rpn, SysEx
+from .controls import MessageType, Control, Rpn, SysEx, longform
 from ..enums import ReverbType, ChorusType, SwitchBool
 from . import voices
 
 class WrappedMessage(object):
     # These are wrapped mido messages.
     # Like normal messages, but with some extra metadata.
-    type = "message"
     wrap_type = None
 
     def __init__(self, message):
@@ -29,15 +28,33 @@ class WrappedMessage(object):
         # but we are all responsible adults, right?
         self.message = message
 
+    @property
+    def wrap_type_longform(self):
+        return longform.get(self.wrap_type)
+
     def __str__(self):
-        return "{} {!s}".format(self.type, self.message)
+        return "{!s} {!s}".format(self.wrap_type_longform, self.message)
 
     def __repr__(self):
         return "<{!s} {!r}>".format(self, self.message)
 
 
-class WrappedSysEx(WrappedMessage):
-    type = "sysex"
+class WrappedGlobalMessage(WrappedMessage):
+    # A wrapped message that changes the global state.
+    @property
+    def channel(self):
+        return None
+
+
+class WrappedChannelMessage(WrappedMessage):
+    # A wrapped message that changes a channel state.
+    @property
+    def channel(self):
+        return self.message.channel
+
+
+class WrappedSysEx(WrappedGlobalMessage):
+    wrap_type = MessageType.SYSEX
 
     def __init__(self, message, match=None):
         super().__init__(message)
@@ -47,12 +64,11 @@ class WrappedSysEx(WrappedMessage):
         self.value = self.message.data
 
     def __str__(self):
-        return "{} value={}".format(self.type, self.value)
+        return "{!s} value={}".format(self.wrap_type, self.value)
 
 
 class WrappedGMSystemOn(WrappedSysEx):
     # GM System ON, F0 7E 7F 09 01 F7
-    type = "gm_on"
     wrap_type = SysEx.GM_ON
     REGEX = re.compile(rb'\x7E\x7F\x09\x01\xF7', re.S)
 
@@ -60,12 +76,11 @@ class WrappedGMSystemOn(WrappedSysEx):
         self.value = None
 
     def __str__(self):
-        return self.type
+        return str(self.wrap_type)
 
 
 class WrappedMIDIMasterVolume(WrappedSysEx):
     # MIDI Master Volume, F0 7F 7F 04 01 ** mm F7
-    type = "master_vol"
     wrap_type = SysEx.MASTER_VOL
     REGEX = re.compile(rb'\x7F\x7F\x04\x01.(.)', re.S)
     def _process(self, match):
@@ -74,7 +89,6 @@ class WrappedMIDIMasterVolume(WrappedSysEx):
 
 class WrappedMIDIMasterTuning(WrappedSysEx):
     # MIDI Master Tuning, F0 43 1* 27 30 00 00 *m *l ** F7
-    type = "master_tune"
     wrap_type = SysEx.MASTER_TUNE
     REGEX = re.compile(rb'\x43[\x10-\x1F]\x27\x30\x00\x00(..).', re.S)
     def _process(self, match):
@@ -92,11 +106,9 @@ class WrappedReverbChorus(WrappedSysEx):
     def _process(self, match):
         cat, self.msb, self.lsb = match.group(1)
         if cat == 0x00:
-            self.type = "reverb_type"
             self.wrap_type = SysEx.REVERB_TYPE
             self.value = ReverbType.from_b(self.msb, self.lsb)
         elif cat == 0x20:
-            self.type = "chorus_type"
             self.wrap_type = SysEx.CHORUS_TYPE
             self.value = ChorusType.from_b(self.msb, self.lsb)
 
@@ -116,31 +128,27 @@ def wrap_sysex(message):
 
 
 class WrappedControlChange(WrappedMessage):
-    type = "control_change"
-
+    wrap_type = MessageType.CONTROL_CHANGE
     def __init__(self, message):
         super().__init__(message)
-        self.channel = message.channel
-        self.control_num = message.control
-        self.control_value = message.value
 
-        try: 
-            self.wrap_type = Control(self.control_num)
+        try:
+            self.wrap_type = Control(self.message.control)
         except ValueError:
-            self.type = "control_{}".format(self.control_num)
-        else:
-            self.type = self.wrap_type.name.lower()
+            pass
 
         self._process()
 
     def _process(self):
-        self.value = self.control_value
+        self.value = self.message.value
 
+
+class WrappedChannelControlChange(WrappedChannelMessage, WrappedControlChange):
     def __str__(self):
-        return "{} channel={} value={}".format(self.type, self.channel, self.value)
+        return "{} {!s} {}".format(self.channel, self.wrap_type, self.value)
 
 
-class WrappedSingle(WrappedControlChange):
+class WrappedSingle(WrappedChannelMessage, WrappedControlChange):
     TYPES = {
         Control.DATA_INC, Control.DATA_DEC,
         Control.SOUND_OFF, Control.SOUND_OFF_XMONO, Control.SOUND_OFF_XPOLY,
@@ -149,35 +157,46 @@ class WrappedSingle(WrappedControlChange):
     def _process(self):
         # No use for the value
         self.value = None
-    
+
     def __str__(self):
-        return "{} channel={}".format(self.type, self.channel)
+        return "{} {!s}".format(self.channel, self.wrap_type)
 
 
 class WrappedHighBoolean(WrappedControlChange):
-    TYPES = {Control.LOCAL, Control.PEDAL}
     def _process(self):
         # highest bit: 1 for ON, 0 for OFF.
-        self.value = SwitchBool(self.control_value >= 64)
+        self.value = SwitchBool(self.message.value >= 64)
+
+class WrappedPedal(WrappedHighBoolean, WrappedChannelControlChange):
+    TYPES = {Control.PEDAL}
+       
+
+class WrappedLocal(WrappedGlobalMessage, WrappedHighBoolean):
+    TYPES = {Control.LOCAL}
+    def __str__(self):
+        return "{!s} {}".format(self.wrap_type, self.value)
+
+
+_CONTROL_WRAP_MAPPING = {t: c
+    for c in (WrappedSingle, WrappedPedal, WrappedLocal)
+    for t in c.TYPES}
 
 
 def wrap_control(message):
-    for control_class in (WrappedSingle, WrappedHighBoolean):
-        if message.control in control_class.TYPES:
-            return control_class(message)
-    return WrappedControlChange(message)
+    control_class = _CONTROL_WRAP_MAPPING.get(
+        message.control, WrappedChannelControlChange)
+    return control_class(message)
 
 
-class WrappedProgramChange(WrappedMessage):
-    type = "program_change"
+class WrappedProgramChange(WrappedChannelMessage):
+    wrap_type = MessageType.PROGRAM_CHANGE
 
     def __init__(self, message):
         super().__init__(message)
-        self.channel = message.channel
-        self.program = message.program
+        self.value = message.program
 
     def __str__(self):
-        return "{} channel={} program={}".format(self.type, self.channel, self.program)
+        return "{} program {}".format(self.channel, self.value)
 
 
 def wrap(message):
@@ -192,49 +211,64 @@ def wrap(message):
 
 
 class StateChange(object):
-    # This class is for special wrappers in the control-state thing.
-    pass
+    """
+    This class is for special wrappers in the control-state thing.
+    The wrappers wrap a wrapper itself. This wrapper is the wrapper
+    that triggered the shape change.
+    """
+    def __init__(self, wrapped):
+        self.wrapped = wrapped
+    
+    @property
+    def message(self):
+        return self.wrapped.message
+    
+    @property
+    def channel(self):
+        return self.wrapped.channel
 
 
 class DataChange(StateChange):
+    """
+    StateChange object for when some rpn data is set.
+    """
 
-    def __init__(self, channel, rpn, rpn_value):
+    def __init__(self, wrapped, rpn, data):
+        super().__init__(wrapped)
         self.rpn = rpn
-        self.rpn_value = rpn_value
-        self.channel = channel
+        self.data = data
 
         try:
             self.wrap_type = Rpn(rpn)
         except ValueError:
-            self.type = "rpn_{:02X}{:02X}".format(*rpn)
-        else:
-            self.type = self.wrap_type.name.lower()
+            self.wrap_type = None
 
         self._process()
-    
+
     def _process(self):
-        self.value = self.rpn_value
+        self.value = self.data
 
     def __str__(self):
-        return "ch {}, {}, {}".format(self.channel, self.type, self.value)
+        return "ch {}, {}, {}".format(self.channel, self.wrap_type, self.value)
 
 
-class VoiceChange(DataChange):
+class VoiceChange(StateChange):
+    """
+    A StateChange object for when the voice is changed.
+    """
 
-    def __init__(self, channel, bank_program):
-        self.channel = channel
+    def __init__(self, wrapped, bank_program):
+        super().__init__(wrapped)
         self.bank_program = bank_program
-    
+        
+        assert self.message.program == bank_program[2]
+
         try:
             self.voice = voices.from_bank_program(*bank_program)
             self.voice_string = self.voice.voice_string()
         except KeyError:
             self.voice = None
             self.voice_string = str(self.bank_program)
-    
+
     def __str__(self):
         return "ch {}, Voice {}".format(self.channel, self.voice_string)
-
-
-
-

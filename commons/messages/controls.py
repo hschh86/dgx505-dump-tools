@@ -12,6 +12,12 @@ from . import voices
 from ..util import lazy_property
 
 
+class MessageType(str, enum.Enum):
+    PROGRAM_CHANGE = "program_change"
+    CONTROL_CHANGE = "control_change"
+    SYSEX = "sysex"
+
+
 class Control(enum.IntEnum):
     BANK_MSB = 0x00
     BANK_LSB = 0x32
@@ -59,6 +65,9 @@ class SysEx(enum.Enum):
 
 
 longform = {
+    MessageType.PROGRAM_CHANGE: "Program Change",
+    MessageType.CONTROL_CHANGE: "Control Change",
+    MessageType.SYSEX:          "System Exclusive",
     Control.BANK_MSB:           "Bank MSB",
     Control.BANK_LSB:           "Bank LSB",
     Control.VOLUME:             "Voice Volume",
