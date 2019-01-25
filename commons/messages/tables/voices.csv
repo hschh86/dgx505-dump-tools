@@ -44,7 +44,7 @@ Number,Name,Category,Bank MSB,Bank LSB,Program
 43,Overdriven Guitar,GUITAR,0,112,29
 44,Distortion Guitar,GUITAR,0,112,30
 45,Acoustic Bass,BASS,0,112,32
-46,Finger Bass ,BASS,0,112,33
+46,Finger Bass,BASS,0,112,33
 47,Pick Bass,BASS,0,112,34
 48,Fretless Bass,BASS,0,112,35
 49,Slap Bass,BASS,0,112,36
@@ -86,7 +86,7 @@ Number,Name,Category,Bank MSB,Bank LSB,Program
 85,Trombone Section,TRUMPET,0,113,57
 86,French Horn,TRUMPET,0,112,60
 87,Tuba,TRUMPET,0,112,58
-88,Brass Section ,BRASS,0,112,61
+88,Brass Section,BRASS,0,112,61
 89,Big Band Brass,BRASS,0,113,61
 90,Mellow Horns,BRASS,0,119,61
 91,Synth Brass,BRASS,0,112,62

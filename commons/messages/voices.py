@@ -14,9 +14,15 @@ class Voice(collections.namedtuple("Voice",
     __slots__ = ()
 
     def voice_string(self):
-        return "{} {} ({})".format(self.number, self.name, self.category)
+        if self.number is None:
+            n = "???"
+        else:
+            n = format(self.number, "03d")        
+        return "{} {} ({})".format(n, self.name, self.category)
 
-    
+    def voice_string_extended(self):
+        return "[{},{},{}] {}".format(
+            self.msb, self.lsb, self.prog, self.voice_string())
 
 
 # Useless Class Strikes Again
@@ -97,3 +103,16 @@ def from_bank_program(msb, lsb, prog):
     KeyError raised if no voice has those bytes.
     """
     return _LOOKUP.dicts.bank_programs[(msb, lsb, prog)]
+
+
+def from_bank_program_default(msb, lsb, prog):
+    """
+    Look up a voice by bank and program bytes, using from_bank_program
+    if no voice has the bytes, then it will try to fall back to generic
+    """
+    # This needs to be redone properly once I figure out how
+    try:
+        return from_bank_program(msb, lsb, prog)
+    except KeyError:
+        # Just use a basic default for now.
+        return Voice(None, None, None, msb, lsb, prog)

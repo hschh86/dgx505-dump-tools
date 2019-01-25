@@ -76,19 +76,17 @@ class ChannelState(object):
     def bank_program(self):
         return self._bank_program
 
-    def set_program(self, value):
-        # When the program is set, we save the current bank
-        # and the program.
-
-        self._bank_program = (*self.bank(), value)
-        return wrappers.VoiceChange(self._channel, self._bank_program)
 
     def feed_wrapped(self, wrapped):
         assert wrapped.channel == self._channel
 
         # is it a program change?
+        
         if wrapped.wrap_type is MessageType.PROGRAM_CHANGE:
-            return wrapped, self.set_program(wrapped.value)
+            # When the program is set, we save the current bank
+            # and the program.
+            self._bank_program = (*self.bank(), wrapped.value)
+            return wrappers.VoiceChange(wrapped, self._bank_program)
 
         # Is it a data entry?
         if wrapped.wrap_type in {
@@ -100,7 +98,7 @@ class ChannelState(object):
             # If we don't know the current rpn, we can't do anything
             # so we just return right away
             if rpn[0] is None or rpn[1] is None:
-                return wrapped,
+                return wrapped
 
             # If we do know the rpn, then augment accordingly
             if wrapped.wrap_type is Control.DATA_MSB:
@@ -115,11 +113,11 @@ class ChannelState(object):
                 elif wrapped.wrap_type is Control.DATA_DEC:
                     if msb > 0x00:
                         self._data_msb[rpn] = msb-1
-            return wrapped, wrappers.DataChange(self._channel, rpn, self.data())
+            return wrappers.DataChange(wrapped, rpn, self.data())
 
         # It's a normal control
         self._controls[wrapped.message.control] = wrapped.value
-        return wrapped,
+        return wrapped
 
     def get_rpn_data(self, rpn):
         return self._data_msb[rpn], self._data_lsb[rpn]
@@ -154,9 +152,11 @@ class MidiControlState(object):
     def feed_message(self, msg):
         """
         Feed a mido message into the object, updating the internal state.
-        Returns a tuple of message wrappers and state change objects,
+        Returns wrapped message
         """
         wrapped = wrappers.wrap(msg)
+        if wrapped.wrap_type is None:
+            return wrapped
 
         if wrapped.channel is None:
             # Global Settings.
@@ -174,7 +174,7 @@ class MidiControlState(object):
                 self._reverb = wrapped.value
             elif wrapped.wrap_type is SysEx.CHORUS_TYPE:
                 self._chorus = wrapped.value
-            return wrapped,
+            return wrapped
         else:
             # Channel Setting.
             # pass message through.

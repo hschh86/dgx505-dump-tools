@@ -13,14 +13,20 @@ from ..util import lazy_property
 
 
 class MessageType(str, enum.Enum):
+    NOTE_ON = "note_on"
+    NOTE_OFF = "note_off"
+    PITCHWHEEL = "pitchwheel"
     PROGRAM_CHANGE = "program_change"
     CONTROL_CHANGE = "control_change"
     SYSEX = "sysex"
+    CLOCK = "clock"
+    START = "start"
+    STOP = "stop"
 
 
 class Control(enum.IntEnum):
     BANK_MSB = 0x00
-    BANK_LSB = 0x32
+    BANK_LSB = 0x20
     VOLUME = 0x07
     PAN = 0x0A
     REVERB = 0x5B
@@ -65,9 +71,15 @@ class SysEx(enum.Enum):
 
 
 longform = {
+    MessageType.NOTE_ON:        "Note On",
+    MessageType.NOTE_OFF:       "Note Off",
+    MessageType.PITCHWHEEL:     "Pitch Bend",
     MessageType.PROGRAM_CHANGE: "Program Change",
     MessageType.CONTROL_CHANGE: "Control Change",
     MessageType.SYSEX:          "System Exclusive",
+    MessageType.CLOCK:          "Clock",
+    MessageType.START:          "Start",
+    MessageType.STOP:           "Stop",
     Control.BANK_MSB:           "Bank MSB",
     Control.BANK_LSB:           "Bank LSB",
     Control.VOLUME:             "Voice Volume",

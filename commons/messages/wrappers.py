@@ -19,6 +19,7 @@ class WrappedMessage(object):
     # These are wrapped mido messages.
     # Like normal messages, but with some extra metadata.
     wrap_type = None
+    value = None
 
     def __init__(self, message):
         """
@@ -27,13 +28,27 @@ class WrappedMessage(object):
         # I suppose we could use FrozenMessages here,
         # but we are all responsible adults, right?
         self.message = message
+    
+    @property
+    def channel(self):
+        try:
+            return self.message.channel
+        except AttributeError:
+            return None
 
     @property
     def wrap_type_longform(self):
         return longform.get(self.wrap_type)
 
+    @property
+    def value_longform(self):
+        return self.value
+
     def __str__(self):
-        return "{!s} {!s}".format(self.wrap_type_longform, self.message)
+        return " ".join(
+            str(i) for i in (
+                self.channel, self.wrap_type_longform, self.value_longform)
+            if i is not None)
 
     def __repr__(self):
         return "<{!s} {!r}>".format(self, self.message)
@@ -46,13 +61,6 @@ class WrappedGlobalMessage(WrappedMessage):
         return None
 
 
-class WrappedChannelMessage(WrappedMessage):
-    # A wrapped message that changes a channel state.
-    @property
-    def channel(self):
-        return self.message.channel
-
-
 class WrappedSysEx(WrappedGlobalMessage):
     wrap_type = MessageType.SYSEX
 
@@ -61,22 +69,21 @@ class WrappedSysEx(WrappedGlobalMessage):
         self._process(match)
 
     def _process(self, match):
-        self.value = self.message.data
+        self.value = None
 
-    def __str__(self):
-        return "{!s} value={}".format(self.wrap_type, self.value)
+    @property
+    def wrap_type_longform(self):
+        if self.wrap_type is MessageType.SYSEX:
+            return "[SysEx {}]".format(
+                " ".join(format(x, "02X") for x in self.message.data))
+        else:
+            return super().wrap_type_longform
 
 
 class WrappedGMSystemOn(WrappedSysEx):
     # GM System ON, F0 7E 7F 09 01 F7
     wrap_type = SysEx.GM_ON
     REGEX = re.compile(rb'\x7E\x7F\x09\x01\xF7', re.S)
-
-    def _process(self, match):
-        self.value = None
-
-    def __str__(self):
-        return str(self.wrap_type)
 
 
 class WrappedMIDIMasterVolume(WrappedSysEx):
@@ -139,16 +146,20 @@ class WrappedControlChange(WrappedMessage):
 
         self._process()
 
+    @property
+    def wrap_type_longform(self):
+        if self.wrap_type is MessageType.CONTROL_CHANGE:
+            return "[Control {}]".format(self.message.control)
+        else:
+            return super().wrap_type_longform
+
+
     def _process(self):
         self.value = self.message.value
 
 
-class WrappedChannelControlChange(WrappedChannelMessage, WrappedControlChange):
-    def __str__(self):
-        return "{} {!s} {}".format(self.channel, self.wrap_type, self.value)
 
-
-class WrappedSingle(WrappedChannelMessage, WrappedControlChange):
+class WrappedSingle(WrappedControlChange):
     TYPES = {
         Control.DATA_INC, Control.DATA_DEC,
         Control.SOUND_OFF, Control.SOUND_OFF_XMONO, Control.SOUND_OFF_XPOLY,
@@ -159,7 +170,7 @@ class WrappedSingle(WrappedChannelMessage, WrappedControlChange):
         self.value = None
 
     def __str__(self):
-        return "{} {!s}".format(self.channel, self.wrap_type)
+        return "{} {!s}".format(self.channel, self.wrap_type_longform)
 
 
 class WrappedHighBoolean(WrappedControlChange):
@@ -167,14 +178,14 @@ class WrappedHighBoolean(WrappedControlChange):
         # highest bit: 1 for ON, 0 for OFF.
         self.value = SwitchBool(self.message.value >= 64)
 
-class WrappedPedal(WrappedHighBoolean, WrappedChannelControlChange):
+class WrappedPedal(WrappedHighBoolean):
     TYPES = {Control.PEDAL}
        
 
 class WrappedLocal(WrappedGlobalMessage, WrappedHighBoolean):
     TYPES = {Control.LOCAL}
     def __str__(self):
-        return "{!s} {}".format(self.wrap_type, self.value)
+        return "{!s} {}".format(self.wrap_type_longform, self.value)
 
 
 _CONTROL_WRAP_MAPPING = {t: c
@@ -184,22 +195,24 @@ _CONTROL_WRAP_MAPPING = {t: c
 
 def wrap_control(message):
     control_class = _CONTROL_WRAP_MAPPING.get(
-        message.control, WrappedChannelControlChange)
+        message.control, WrappedControlChange)
     return control_class(message)
 
 
-class WrappedProgramChange(WrappedChannelMessage):
+class WrappedProgramChange(WrappedMessage):
     wrap_type = MessageType.PROGRAM_CHANGE
 
     def __init__(self, message):
         super().__init__(message)
         self.value = message.program
 
-    def __str__(self):
-        return "{} program {}".format(self.channel, self.value)
-
 
 def wrap(message):
+    """
+    Wrap a message.
+    If a message is not of the wrappable type,
+    then returns None.
+    """
     if message.type == "program_change":
         return WrappedProgramChange(message)
     elif message.type == "control_change":
@@ -210,7 +223,7 @@ def wrap(message):
         return WrappedMessage(message)
 
 
-class StateChange(object):
+class StateChange(WrappedMessage):
     """
     This class is for special wrappers in the control-state thing.
     The wrappers wrap a wrapper itself. This wrapper is the wrapper
@@ -245,11 +258,21 @@ class DataChange(StateChange):
 
         self._process()
 
-    def _process(self):
-        self.value = self.data
+    @property
+    def wrap_type_longform(self):
+        if self.wrap_type is not None:
+            try:
+                return longform[self.wrap_type]
+            except KeyError:
+                pass
+        return "[RPN {}]".format(self.rpn)
 
-    def __str__(self):
-        return "ch {}, {}, {}".format(self.channel, self.wrap_type, self.value)
+    def _process(self):
+        # Everything uses MSB only
+        if self.data[1] is None:
+            self.value = self.data[0]
+        else:
+            self.value = self.data
 
 
 class VoiceChange(StateChange):
@@ -263,12 +286,12 @@ class VoiceChange(StateChange):
         
         assert self.message.program == bank_program[2]
 
-        try:
-            self.voice = voices.from_bank_program(*bank_program)
-            self.voice_string = self.voice.voice_string()
-        except KeyError:
-            self.voice = None
-            self.voice_string = str(self.bank_program)
-
-    def __str__(self):
-        return "ch {}, Voice {}".format(self.channel, self.voice_string)
+        self.value = voices.from_bank_program_default(*bank_program)
+    
+    @property
+    def value_longform(self):
+        return self.value.voice_string_extended()
+    
+    @property
+    def wrap_type_longform(self):
+        return "Voice"
