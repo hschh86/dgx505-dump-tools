@@ -28,7 +28,7 @@ class WrappedMessage(object):
         # I suppose we could use FrozenMessages here,
         # but we are all responsible adults, right?
         self.message = message
-    
+
     @property
     def channel(self):
         try:
@@ -38,6 +38,12 @@ class WrappedMessage(object):
 
     @property
     def wrap_type_longform(self):
+        if self.wrap_type is None:
+            try:
+                return longform.get(
+                    MessageType(self.message.type))
+            except ValueError:
+                return self.message.type
         return longform.get(self.wrap_type)
 
     @property
@@ -180,7 +186,7 @@ class WrappedHighBoolean(WrappedControlChange):
 
 class WrappedPedal(WrappedHighBoolean):
     TYPES = {Control.PEDAL}
-       
+
 
 class WrappedLocal(WrappedGlobalMessage, WrappedHighBoolean):
     TYPES = {Control.LOCAL}
@@ -207,20 +213,29 @@ class WrappedProgramChange(WrappedMessage):
         self.value = message.program
 
 
+class WrappedPitchwheel(WrappedMessage):
+    wrap_type = MessageType.PITCHWHEEL
+
+    def __init__(self, message):
+        super().__init__(message)
+        self.value = message.pitch
+
+
+_MESSAGE_WRAP_MAPPING = {
+    "program_change": WrappedProgramChange,
+    "control_change": wrap_control,
+    "sysex": wrap_sysex,
+    "pitchwheel": WrappedPitchwheel
+}
+
 def wrap(message):
     """
     Wrap a message.
     If a message is not of the wrappable type,
     then returns None.
     """
-    if message.type == "program_change":
-        return WrappedProgramChange(message)
-    elif message.type == "control_change":
-        return wrap_control(message)
-    elif message.type == "sysex":
-        return wrap_sysex(message)
-    else:
-        return WrappedMessage(message)
+    wrapper = _MESSAGE_WRAP_MAPPING.get(message.type, WrappedMessage)
+    return wrapper(message)
 
 
 class StateChange(WrappedMessage):
@@ -231,11 +246,11 @@ class StateChange(WrappedMessage):
     """
     def __init__(self, wrapped):
         self.wrapped = wrapped
-    
+
     @property
     def message(self):
         return self.wrapped.message
-    
+
     @property
     def channel(self):
         return self.wrapped.channel
@@ -252,20 +267,27 @@ class DataChange(StateChange):
         self.data = data
 
         try:
-            self.wrap_type = Rpn(rpn)
+            wrap_rpn = Rpn(rpn)
         except ValueError:
-            self.wrap_type = None
+            wrap_rpn = None
+        self.wrap_type = (wrapped.wrap_type, wrap_rpn)
 
         self._process()
 
-    @property
-    def wrap_type_longform(self):
-        if self.wrap_type is not None:
+    def _wrap_rpn_longform(self):
+        wrap_rpn = self.wrap_type[1]
+        if wrap_rpn is not None:
             try:
-                return longform[self.wrap_type]
+                return longform[wrap_rpn]
             except KeyError:
                 pass
         return "[RPN {}]".format(self.rpn)
+
+    @property
+    def wrap_type_longform(self):
+        return "{}: {}".format(
+            self.wrapped.wrap_type_longform, self._wrap_rpn_longform())
+
 
     def _process(self):
         # Everything uses MSB only
@@ -283,15 +305,15 @@ class VoiceChange(StateChange):
     def __init__(self, wrapped, bank_program):
         super().__init__(wrapped)
         self.bank_program = bank_program
-        
+
         assert self.message.program == bank_program[2]
 
         self.value = voices.from_bank_program_default(*bank_program)
-    
+
     @property
     def value_longform(self):
         return self.value.voice_string_extended()
-    
+
     @property
     def wrap_type_longform(self):
-        return "Voice"
+        return "Program Change:"

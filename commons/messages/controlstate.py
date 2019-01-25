@@ -61,7 +61,12 @@ class ChannelState(object):
         # We also need to keep the state of the program:
         self._bank_program = (None, None, None)
         # Bank MSB, Bank LSB, Program, as bytes.
-        # and that's basically it.
+
+        # Pitchwheel status.
+        self._pitchwheel = None
+
+        # We could try to keep track of notes, but that's more complicated
+        # because notes can stack for some reason.
 
     def bank(self):
         return self._controls[Control.BANK_MSB], self._controls[Control.BANK_LSB]
@@ -87,6 +92,10 @@ class ChannelState(object):
             # and the program.
             self._bank_program = (*self.bank(), wrapped.value)
             return wrappers.VoiceChange(wrapped, self._bank_program)
+        
+        if wrapped.wrap_type is MessageType.PITCHWHEEL:
+            self._pitchwheel = wrapped.value
+            return wrapped
 
         # Is it a data entry?
         if wrapped.wrap_type in {
@@ -115,8 +124,11 @@ class ChannelState(object):
                         self._data_msb[rpn] = msb-1
             return wrappers.DataChange(wrapped, rpn, self.data())
 
-        # It's a normal control
-        self._controls[wrapped.message.control] = wrapped.value
+        if (wrapped.wrap_type in Control or
+            wrapped.wrap_type is MessageType.CONTROL_CHANGE):
+            # It's a normal control
+            self._controls[wrapped.message.control] = wrapped.value
+
         return wrapped
 
     def get_rpn_data(self, rpn):
