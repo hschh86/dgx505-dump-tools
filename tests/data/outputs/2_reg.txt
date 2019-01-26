@@ -155,7 +155,7 @@ Bank 2, Button 2:
        Style number: 050
       Accompaniment: OFF
            Main A/B: Main B
-              Tempo:  82
+              Tempo: 082
   Main Voice number: 078
   Dual Voice number: 076
  Split Voice number: 046
@@ -165,7 +165,7 @@ Bank 2, Button 2:
        Style Volume: 100
           Transpose:  00
    Pitch Bend Range:  02
-        Split Point: 54(F#2)
+        Split Point: 054(F#2)
           M. Volume: 103
           M. Octave:   0
              M. Pan: 064
@@ -182,7 +182,7 @@ Bank 2, Button 2:
     S. Reverb Level: 008
     S. Chorus Level: 000
         Reverb Type: 03(Hall3)
-        Chorus Type: 01(Chorus1)
+        Chorus Type: 1(Chorus1)
             Sustain: OFF
        Harmony Type: 01(Duet)
      Harmony Volume: 080
@@ -227,7 +227,7 @@ Bank 3, Button 2:
        Style number: 092
       Accompaniment:  ON
            Main A/B: Main A
-              Tempo:  80
+              Tempo: 080
   Main Voice number: 060
   Dual Voice number: 201
  Split Voice number: 003
@@ -237,7 +237,7 @@ Bank 3, Button 2:
        Style Volume: 050
           Transpose:  03
    Pitch Bend Range:  05
-        Split Point: 53(F2)
+        Split Point: 053(F2)
           M. Volume: 054
           M. Octave:  -1
              M. Pan: 092

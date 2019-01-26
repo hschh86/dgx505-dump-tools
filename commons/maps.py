@@ -10,6 +10,8 @@ These maps implement the Mapping abstract data type.
 import collections.abc
 import numbers
 
+from .enums import NoteNumber
+
 class BytesAssertMap(collections.abc.Mapping):
     """
     The BytesAssertMap maps one particular 'bytes' sequence to
@@ -90,20 +92,39 @@ class RangeMap(collections.abc.Mapping):
         return length
 
 
+class EffectTypeMap(collections.abc.Mapping):
+    """
+    Map for the effect type enums (Harmony, Chorus, Reverb)
+    defined in commons.enums
+    """
+    def __init__(self, effect_enum_class):
+        self.effect_enum_class = effect_enum_class
+    
+    def __getitem__(self, key):
+        try:
+            effect = self.effect_enum_class(key)
+        except ValueError:
+            raise KeyError("No such effect {}".format(key))
+        return effect.d_value(), str(effect)
+    
+    def __iter__(self):
+        for effect in self.effect_enum_class:
+            yield effect.value
+
+    def __len__(self):
+        return len(self.effect_enum_class)
+
+
 class KeyMap(RangeMap):
     """
     KeyMap is a specialisation of RangeMap. It maps the input numbers
     to the note notation used by the DGX-505. Only the string output is
     different.
     """
-    NOTES = ("C", "Db", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B")
 
     def __init__(self):
-        super().__init__(0, 127, 0, None, "03d")
+        super().__init__(0, 127, 0)
 
     def __getitem__(self, key):
         number, _ = super().__getitem__(key)
-        a, b = divmod(number, 12)
-        octave = a-2
-        note = self.NOTES[b]
-        return number, "{}({}{:-d})".format(number, note, octave)
+        return number, str(NoteNumber(number))

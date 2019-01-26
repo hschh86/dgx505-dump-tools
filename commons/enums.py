@@ -21,11 +21,7 @@ class EffectTypeEnum(enum.Enum):
 
     @classmethod
     def top(cls):
-        try:
-            top = cls.OFF.value
-        except AttributeError:
-            top = len(cls.__members__)
-        return top
+        return len(cls.__members__)
 
     def d_value(self):
         if self.value > self.top():
@@ -68,6 +64,10 @@ def _assign_lookup_dicts(cls, table):
     cls.t_dict = {b: t for t, b in table}
 
 class ReverbChorusTypeEnum(EffectTypeEnum):
+    @classmethod
+    def top(cls):
+        return cls.OFF.value
+
     def to_b(self):
         return self.b_dict[self]
 
@@ -165,3 +165,26 @@ class Notes(enum.Enum):
 
     def __str__(self):
         return str.translate(self.name, _sharp_surrogator)
+
+
+# Not sure if it's a good idea to subclass int for this, but it works okay
+class NoteNumber(int):
+    __slots__ = ()
+
+    @property
+    def number(self):
+        return int(self)
+
+    @property
+    def octave(self):
+        return (self // 12) - 2
+    
+    @property
+    def note(self):
+        return Notes(self % 12)
+
+    def __repr__(self):
+        return "NoteNumber({!r})".format(self.number)
+    
+    def __str__(self):
+        return "{:03d}({!s}{:-d})".format(self.number, self.note, self.octave)

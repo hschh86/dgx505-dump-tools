@@ -227,7 +227,7 @@ Bank 3, Button 2:
        Style number: 092
       Accompaniment:  ON
            Main A/B: Main A
-              Tempo:  80
+              Tempo: 080
   Main Voice number: 060
   Dual Voice number: 201
  Split Voice number: 003
@@ -237,7 +237,7 @@ Bank 3, Button 2:
        Style Volume: 050
           Transpose:  03
    Pitch Bend Range:  05
-        Split Point: 53(F2)
+        Split Point: 053(F2)
           M. Volume: 054
           M. Octave:  -1
              M. Pan: 092
