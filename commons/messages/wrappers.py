@@ -12,7 +12,7 @@ displaying and working with control and sysex messages.
 import re
 
 from .controls import MessageType, Control, Rpn, SysEx, longform
-from ..enums import ReverbType, ChorusType, SwitchBool
+from ..enums import ReverbType, ChorusType, SwitchBool, NoteNumber
 from . import voices
 
 class WrappedMessage(object):
@@ -89,7 +89,7 @@ class WrappedSysEx(WrappedGlobalMessage):
 class WrappedGMSystemOn(WrappedSysEx):
     # GM System ON, F0 7E 7F 09 01 F7
     wrap_type = SysEx.GM_ON
-    REGEX = re.compile(rb'\x7E\x7F\x09\x01\xF7', re.S)
+    REGEX = re.compile(rb'\x7E\x7F\x09\x01', re.S)
 
 
 class WrappedMIDIMasterVolume(WrappedSysEx):
@@ -221,11 +221,25 @@ class WrappedPitchwheel(WrappedMessage):
         self.value = message.pitch
 
 
+class WrappedNote(WrappedMessage):
+    wrap_type = MessageType.NOTE_ON
+
+    def __init__(self, message):
+        super().__init__(message)
+        self.value = NoteNumber(message.note)
+        # Not the cleanest way to do it.
+        # Should we fold velocity 0 into Note_OFF?
+        if message.type == "note_off" or message.velocity == 0:
+            self.wrap_type = MessageType.NOTE_OFF
+    
+
 _MESSAGE_WRAP_MAPPING = {
     "program_change": WrappedProgramChange,
     "control_change": wrap_control,
     "sysex": wrap_sysex,
-    "pitchwheel": WrappedPitchwheel
+    "pitchwheel": WrappedPitchwheel,
+    "note_on": WrappedNote,
+    "note_off": WrappedNote
 }
 
 def wrap(message):

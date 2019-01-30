@@ -140,6 +140,13 @@ class ChannelState(object):
     def control_value(self, control):
         return self._controls[control]
 
+    def _iter_values(self):
+        yield ("Bank Program", self._bank_program)
+        for k, v in self._controls.items():
+            yield (str(k), v)
+        for k in self._data_msb:
+            yield (str(k), (self._data_msb[k], self._data_lsb[k]))
+        yield ("Pitchwheel", self._pitchwheel)
 
 
 class MidiControlState(object):
@@ -167,7 +174,11 @@ class MidiControlState(object):
         Returns wrapped message
         """
         wrapped = wrappers.wrap(msg)
-        if wrapped.wrap_type is None:
+
+        # For now, we don't pass note messages in.
+        # Might do something with drum kits later, though.
+        if wrapped.wrap_type in {None, MessageType.NOTE_ON,
+                                 MessageType.NOTE_OFF}:
             return wrapped
 
         if wrapped.channel is None:
@@ -204,3 +215,17 @@ class MidiControlState(object):
         # Chorus type is set to (---)Chorus
         # I guess this would be 41 00
         self._chorus = ChorusType.CHORUS
+
+    def _iter_values(self):
+        yield "Local", self._local
+        yield "Master volume", self._master_vol
+        yield "Master tuning", self._master_tune
+        yield "Reverb type", self._reverb
+        yield "Chorus type", self._chorus
+        for channel in self._channels:
+            yield "CHANNEL", channel._channel
+            yield from channel._iter_values()
+    
+    def _dump(self):
+        for x, y in self._iter_values():
+            print('{}: {}'.format(x, y))

@@ -133,6 +133,7 @@ _assign_lookup_dicts(ChorusType, (
     (ChorusType.CHORUS, (0x41, 0x00)),
     (ChorusType.CHORUS2, (0x41, 0x02)),
     (ChorusType.CELESTE, (0x42, 0x00)),
+    (ChorusType.CHORUS1, (0x42, 0x11)),
     (ChorusType.FLANGER, (0x43, 0x00)),
     (ChorusType.FLANGER1, (0x43, 0x08)),
     (ChorusType.FLANGER2, (0x43, 0x11)),
