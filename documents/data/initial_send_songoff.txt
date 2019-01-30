@@ -1,0 +1,337 @@
+clock time=0.016186087001187843
+clock time=0.03821168099966599
+clock time=0.060193473000254016
+clock time=0.082211933000508
+clock time=0.10418644800120092
+clock time=0.1262341319998086
+clock time=0.14819881400035229
+clock time=0.17111352900064958
+clock time=0.19200665900098102
+clock time=0.21509663600045315
+clock time=0.23707014700084983
+clock time=0.2589881220010284
+clock time=0.28100281600018207
+clock time=0.3039730670006975
+clock time=0.3259843080013525
+clock time=0.3469676439999603
+clock time=0.36904777900053887
+clock time=0.39211485700070625
+clock time=0.4140009809998446
+clock time=0.436169702999905
+clock time=0.4580118820013013
+clock time=0.47997684700021637
+clock time=0.502064252999844
+clock time=0.5239724519997253
+clock time=0.5469531970011303
+clock time=0.5689735280011519
+sysex data=(126,127,9,1) time=0.7650977590001276
+sysex data=(67,16,76,0,0,126,0) time=0.9662415290003992
+sysex data=(67,16,39,48,0,0,8,0,0) time=1.1670997849996638
+sysex data=(67,16,76,2,1,0,1,0) time=1.1701044120000006
+sysex data=(67,16,76,2,1,32,66,17) time=1.1731954950009822
+clock time=1.1738535820004472
+clock time=1.1881464819998655
+clock time=1.2126362510007311
+clock time=1.232059844000105
+clock time=1.254004533000625
+control_change channel=8 control=7 value=88 time=1.2649463800007652
+control_change channel=8 control=1 value=0 time=1.2653412590007065
+control_change channel=8 control=10 value=64 time=1.2659606030010764
+control_change channel=8 control=11 value=127 time=1.2669481550001365
+control_change channel=8 control=91 value=40 time=1.2671980400009488
+control_change channel=8 control=93 value=0 time=1.26794640099979
+control_change channel=8 control=71 value=64 time=1.268949192000946
+control_change channel=8 control=72 value=64 time=1.2691942609999387
+control_change channel=8 control=73 value=64 time=1.269943819999753
+control_change channel=8 control=74 value=64 time=1.2709508590014593
+control_change channel=8 control=0 value=127 time=1.2710903180013702
+control_change channel=8 control=32 value=0 time=1.2719468089999282
+program_change channel=8 program=0 time=1.2720794020005997
+control_change channel=8 control=101 value=0 time=1.2729502710008092
+control_change channel=8 control=100 value=0 time=1.273941466000906
+control_change channel=8 control=6 value=2 time=1.2749423710010888
+control_change channel=8 control=101 value=0 time=1.2751021069998387
+control_change channel=8 control=100 value=1 time=1.2759446810014197
+control_change channel=8 control=6 value=64 time=1.276945263000016
+control_change channel=8 control=101 value=0 time=1.2772048130009352
+control_change channel=8 control=100 value=2 time=1.2781458420013223
+control_change channel=8 control=6 value=64 time=1.2789489540009527
+pitchwheel channel=8 pitch=0 time=1.2799413530010497
+control_change channel=9 control=7 value=86 time=1.2809477980008523
+control_change channel=9 control=1 value=0 time=1.2810850280002342
+control_change channel=9 control=10 value=64 time=1.2819429080009286
+control_change channel=9 control=11 value=127 time=1.282074824001029
+control_change channel=9 control=91 value=20 time=1.2829393550000532
+control_change channel=9 control=93 value=0 time=1.2839412129997072
+control_change channel=9 control=71 value=64 time=1.284070978001182
+control_change channel=9 control=72 value=64 time=1.2849421040009474
+control_change channel=9 control=73 value=64 time=1.2859410050004954
+control_change channel=9 control=74 value=64 time=1.2860714770013146
+control_change channel=9 control=0 value=127 time=1.286940512000001
+control_change channel=9 control=32 value=0 time=1.2879501590014115
+program_change channel=9 program=27 time=1.2880850530000316
+control_change channel=9 control=101 value=0 time=1.2889488199998596
+control_change channel=9 control=100 value=0 time=1.289940471000591
+control_change channel=9 control=6 value=2 time=1.2909401610013447
+control_change channel=9 control=101 value=0 time=1.2910941790014476
+control_change channel=9 control=100 value=1 time=1.2919429989997298
+control_change channel=9 control=6 value=64 time=1.2920743980012048
+control_change channel=9 control=101 value=0 time=1.292944606000674
+control_change channel=9 control=100 value=2 time=1.2939399110000522
+control_change channel=9 control=6 value=64 time=1.294070064999687
+pitchwheel channel=9 pitch=0 time=1.2949391970014403
+control_change channel=10 control=7 value=81 time=1.2959391540007346
+control_change channel=10 control=1 value=0 time=1.2971345070000098
+control_change channel=10 control=10 value=64 time=1.2979626140004257
+control_change channel=10 control=11 value=127 time=1.2980963090012665
+control_change channel=10 control=91 value=0 time=1.298943366000458
+control_change channel=10 control=93 value=20 time=1.2990782550004951
+control_change channel=10 control=71 value=64 time=1.299941094001042
+control_change channel=10 control=72 value=64 time=1.3009459860004426
+control_change channel=10 control=73 value=64 time=1.3010822940013895
+control_change channel=10 control=74 value=64 time=1.3019419410011324
+control_change channel=10 control=0 value=0 time=1.3029402130014205
+control_change channel=10 control=32 value=112 time=1.3030740310005058
+program_change channel=10 program=33 time=1.3039473549997638
+control_change channel=10 control=101 value=0 time=1.3049461179998616
+control_change channel=10 control=100 value=0 time=1.3059422530004667
+control_change channel=10 control=6 value=2 time=1.306074513000567
+control_change channel=10 control=101 value=0 time=1.3069435060006072
+control_change channel=10 control=100 value=1 time=1.3079423159997532
+control_change channel=10 control=6 value=64 time=1.3080741970006784
+control_change channel=10 control=101 value=0 time=1.3089443640001264
+control_change channel=10 control=100 value=2 time=1.309077972000523
+control_change channel=10 control=6 value=64 time=1.3099408320013026
+pitchwheel channel=10 pitch=0 time=1.3110817350006982
+control_change channel=11 control=7 value=56 time=1.311951420000696
+control_change channel=11 control=1 value=0 time=1.312946299000032
+control_change channel=11 control=10 value=38 time=1.3158490840014565
+control_change channel=11 control=11 value=127 time=1.3202868560001662
+control_change channel=11 control=91 value=30 time=1.3211261190008372
+control_change channel=11 control=93 value=30 time=1.322133522000513
+control_change channel=11 control=71 value=64 time=1.3222590950008453
+control_change channel=11 control=72 value=64 time=1.3223319450007693
+control_change channel=11 control=73 value=64 time=1.3224015520008834
+control_change channel=11 control=74 value=64 time=1.3226643910002167
+control_change channel=11 control=0 value=0 time=1.3227393480010505
+control_change channel=11 control=32 value=117 time=1.3228079910004453
+program_change channel=11 program=27 time=1.32304816100077
+control_change channel=11 control=101 value=0 time=1.323163035000107
+control_change channel=11 control=100 value=0 time=1.3232349070003693
+control_change channel=11 control=6 value=2 time=1.3233027920014138
+control_change channel=11 control=101 value=0 time=1.3234054550011933
+control_change channel=11 control=100 value=1 time=1.3234739390009054
+control_change channel=11 control=6 value=64 time=1.32617434399981
+control_change channel=11 control=101 value=0 time=1.3281970620009815
+control_change channel=11 control=100 value=2 time=1.3290266399999382
+control_change channel=11 control=6 value=64 time=1.3291631280008005
+pitchwheel channel=11 pitch=0 time=1.3292937480000546
+control_change channel=12 control=7 value=50 time=1.329373378001037
+control_change channel=12 control=1 value=0 time=1.3295230090006953
+control_change channel=12 control=10 value=86 time=1.3295997330005775
+control_change channel=12 control=11 value=127 time=1.330049467000208
+control_change channel=12 control=91 value=40 time=1.3301992670003528
+control_change channel=12 control=93 value=40 time=1.3321145549998619
+control_change channel=12 control=71 value=64 time=1.3324253010014218
+control_change channel=12 control=72 value=64 time=1.332516921000206
+control_change channel=12 control=73 value=64 time=1.3350896930005547
+control_change channel=12 control=74 value=64 time=1.335377277000589
+control_change channel=12 control=0 value=0 time=1.335466868000367
+control_change channel=12 control=32 value=1 time=1.335544043000482
+program_change channel=12 program=4 time=1.3356178880003426
+control_change channel=12 control=101 value=0 time=1.3375250090011832
+control_change channel=12 control=100 value=0 time=1.3378619850009272
+control_change channel=12 control=6 value=2 time=1.3380575030005275
+control_change channel=12 control=101 value=0 time=1.3382159170014347
+control_change channel=12 control=100 value=1 time=1.339095579000059
+control_change channel=12 control=6 value=64 time=1.344827498000086
+control_change channel=12 control=101 value=0 time=1.3455086140002095
+control_change channel=12 control=100 value=2 time=1.3456083809996926
+control_change channel=12 control=6 value=64 time=1.3457115560013335
+pitchwheel channel=12 pitch=0 time=1.3459751339996728
+control_change channel=13 control=7 value=52 time=1.3460767260003195
+control_change channel=13 control=1 value=0 time=1.3461964470006933
+control_change channel=13 control=10 value=68 time=1.3463782070011803
+control_change channel=13 control=11 value=127 time=1.3464789839999867
+control_change channel=13 control=91 value=68 time=1.3466511560000072
+control_change channel=13 control=93 value=0 time=1.3470924600005674
+control_change channel=13 control=71 value=64 time=1.3471893280002405
+control_change channel=13 control=72 value=64 time=1.3481162300013239
+control_change channel=13 control=73 value=64 time=1.3489942680007516
+control_change channel=13 control=74 value=52 time=1.3492009720011993
+control_change channel=13 control=0 value=0 time=1.3499602419997245
+control_change channel=13 control=32 value=0 time=1.3510964760007482
+program_change channel=13 program=51 time=1.3513071520010271
+control_change channel=13 control=101 value=0 time=1.352079139000125
+control_change channel=13 control=100 value=0 time=1.3529834850014595
+control_change channel=13 control=6 value=2 time=1.3530879050013027
+control_change channel=13 control=101 value=0 time=1.3539467840000725
+control_change channel=13 control=100 value=1 time=1.359112845000709
+control_change channel=13 control=6 value=64 time=1.359366159000274
+control_change channel=13 control=101 value=0 time=1.359654327001408
+control_change channel=13 control=100 value=2 time=1.3597656399997504
+control_change channel=13 control=6 value=64 time=1.360310042000492
+pitchwheel channel=13 pitch=0 time=1.3604732370004058
+control_change channel=14 control=7 value=127 time=1.360840666000513
+control_change channel=14 control=1 value=0 time=1.3610226820001117
+control_change channel=14 control=10 value=64 time=1.3611058110000158
+control_change channel=14 control=11 value=127 time=1.3613210420007817
+control_change channel=14 control=91 value=40 time=1.3620690429997921
+control_change channel=14 control=93 value=0 time=1.362224470000001
+control_change channel=14 control=71 value=64 time=1.363174877000347
+control_change channel=14 control=72 value=64 time=1.3640570389998175
+control_change channel=14 control=73 value=64 time=1.364203498000279
+control_change channel=14 control=74 value=64 time=1.3650800040013564
+control_change channel=14 control=0 value=0 time=1.366068499000903
+control_change channel=14 control=32 value=0 time=1.3663444610010629
+program_change channel=14 program=0 time=1.3669999410012679
+control_change channel=14 control=101 value=0 time=1.367948103001254
+control_change channel=14 control=100 value=0 time=1.368942885001161
+control_change channel=14 control=6 value=2 time=1.3690781370005425
+control_change channel=14 control=101 value=0 time=1.3699409210003068
+control_change channel=14 control=100 value=1 time=1.3700737600011053
+control_change channel=14 control=6 value=64 time=1.3714041910006927
+control_change channel=14 control=101 value=0 time=1.3721465400012676
+control_change channel=14 control=100 value=2 time=1.3724162460002844
+control_change channel=14 control=6 value=64 time=1.3838043220002874
+pitchwheel channel=14 pitch=0 time=1.3845195909998438
+control_change channel=15 control=7 value=127 time=1.384672860000137
+control_change channel=15 control=1 value=0 time=1.3848236390003876
+control_change channel=15 control=10 value=64 time=1.3854238690000784
+control_change channel=15 control=11 value=127 time=1.3855396910003037
+control_change channel=15 control=91 value=40 time=1.3856670370005304
+control_change channel=15 control=93 value=0 time=1.3858465169996634
+control_change channel=15 control=71 value=64 time=1.3860103520000848
+control_change channel=15 control=72 value=64 time=1.3860901660009404
+control_change channel=15 control=73 value=64 time=1.386188320000656
+control_change channel=15 control=74 value=64 time=1.3863703410006565
+control_change channel=15 control=0 value=0 time=1.3864672440013237
+control_change channel=15 control=32 value=0 time=1.3865776180009561
+program_change channel=15 program=0 time=1.38676530200064
+control_change channel=15 control=101 value=0 time=1.3870788189997256
+control_change channel=15 control=100 value=0 time=1.3872036960001424
+control_change channel=15 control=6 value=2 time=1.3876156130008894
+control_change channel=15 control=101 value=0 time=1.3877437740011374
+control_change channel=15 control=100 value=1 time=1.387817996999729
+control_change channel=15 control=6 value=64 time=1.389706866000779
+control_change channel=15 control=101 value=0 time=1.38995076700121
+control_change channel=15 control=100 value=2 time=1.3903064300011465
+control_change channel=15 control=6 value=64 time=1.390397605000544
+pitchwheel channel=15 pitch=0 time=1.3904965680012538
+clock time=1.3905946960003348
+clock time=1.3906144909997238
+clock time=1.3910790540012385
+clock time=1.3911062070001208
+clock time=1.3920351220003795
+clock time=1.3920585400010168
+clock time=1.4123133160010184
+clock time=1.4310756920003769
+clock time=1.4539609479998035
+control_change channel=0 control=0 value=0 time=1.4639304480006103
+control_change channel=0 control=32 value=113 time=1.4649556010008382
+program_change channel=0 program=0 time=1.4651021680001577
+control_change channel=1 control=0 value=0 time=1.4659457039997505
+control_change channel=1 control=32 value=112 time=1.4669366020007146
+program_change channel=1 program=48 time=1.4679340990005585
+control_change channel=2 control=0 value=0 time=1.4689421680013766
+control_change channel=2 control=32 value=112 time=1.4690779280008428
+program_change channel=2 program=33 time=1.4699354390013468
+control_change channel=0 control=7 value=110 time=1.470947238000008
+control_change channel=1 control=7 value=36 time=1.4719371060000412
+control_change channel=2 control=7 value=100 time=1.4729373090012814
+control_change channel=0 control=10 value=64 time=1.473932988001252
+control_change channel=1 control=10 value=64 time=1.47493407300135
+control_change channel=2 control=10 value=64 time=1.4759318420001364
+control_change channel=0 control=91 value=20 time=1.4769711990011274
+control_change channel=1 control=91 value=50 time=1.4771795790002216
+control_change channel=2 control=91 value=8 time=1.4790078590012854
+control_change channel=0 control=93 value=0 time=1.4791512589999911
+control_change channel=1 control=93 value=0 time=1.4799438360005297
+control_change channel=2 control=93 value=0 time=1.4809371570008807
+control_change channel=0 control=101 value=0 time=1.4819357209998998
+control_change channel=0 control=100 value=0 time=1.4829349250012456
+control_change channel=0 control=6 value=2 time=1.4839320540013432
+control_change channel=1 control=101 value=0 time=1.4849388109996653
+control_change channel=1 control=100 value=0 time=1.4850747660002526
+control_change channel=1 control=6 value=2 time=1.4859349770013068
+control_change channel=2 control=101 value=0 time=1.4869418470007076
+control_change channel=2 control=100 value=0 time=1.4879383759998746
+control_change channel=2 control=6 value=2 time=1.488071507001223
+pitchwheel channel=0 pitch=0 time=1.488937452000755
+pitchwheel channel=1 pitch=0 time=1.4899284160001116
+pitchwheel channel=2 pitch=0 time=1.4909269430008862
+control_change channel=0 control=72 value=64 time=1.4919323070007522
+control_change channel=1 control=72 value=64 time=1.4929354110008717
+control_change channel=2 control=72 value=64 time=1.493936188000589
+clock time=1.4940610280009423
+clock time=1.4979244570004084
+clock time=1.5199343920012325
+clock time=1.5419104610009526
+clock time=1.5640813400004845
+clock time=1.5860852540008636
+clock time=1.6080914789999952
+clock time=1.6310570980003831
+clock time=1.6529474660001142
+clock time=1.6749081830002979
+clock time=1.6969239999998535
+clock time=1.7190730300008
+clock time=1.7409663440012082
+clock time=1.7630702610003937
+clock time=1.7849652450004214
+clock time=1.8079102290012088
+clock time=1.8299345010000252
+clock time=1.8519049290007388
+clock time=1.8738995109997632
+clock time=1.8959141760005878
+clock time=1.9180890630013891
+clock time=1.9408990709998761
+clock time=1.962922011000046
+clock time=1.9838985220012546
+clock time=2.0069269640007406
+clock time=2.028918928001076
+clock time=2.0509062390010513
+clock time=2.073055352000665
+clock time=2.0949266370007535
+clock time=2.116952456000945
+clock time=2.1388950390009995
+clock time=2.1608894880009757
+clock time=2.183892631999697
+clock time=2.205888029000562
+clock time=2.2279170310011978
+clock time=2.2510814380002557
+clock time=2.271935835000477
+clock time=2.293907205001233
+clock time=2.3159015480014205
+clock time=2.3388848300000973
+clock time=2.3608844919999683
+clock time=2.3828852030001144
+clock time=2.4048767010008305
+clock time=2.426915060999818
+clock time=2.4488794980006787
+clock time=2.4708809680014383
+clock time=2.4938824780001596
+clock time=2.5160712260003493
+clock time=2.5379075850014488
+clock time=2.5608858920004423
+clock time=2.581880744000955
+clock time=2.60386714300148
+clock time=2.6259053840003617
+clock time=2.6480326689998037
+clock time=2.669919583000592
+clock time=2.6929022910007916
+clock time=2.7148658330006583
+clock time=2.7368865640000877
+clock time=2.7588644370007387
+clock time=2.7811044990012306
+clock time=2.802960166000048
+clock time=2.825901979000264
+clock time=2.8478604880001512
+clock time=2.869860108001376
+clock time=2.891892061999897
+clock time=2.913939392999964
+clock time=2.9360133500013035
+clock time=2.9578770360003546
+clock time=2.9798819290008396
+clock time=3.0028799179999623
+clock time=3.02388732899999
+note_on channel=0 note=108 velocity=89 time=3.0418692310013284
