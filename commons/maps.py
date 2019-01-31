@@ -10,7 +10,7 @@ These maps implement the Mapping abstract data type.
 import collections.abc
 import numbers
 
-from .enums import NoteNumber
+from .enums import NoteValue
 
 class BytesAssertMap(collections.abc.Mapping):
     """
@@ -127,4 +127,4 @@ class KeyMap(RangeMap):
 
     def __getitem__(self, key):
         number, _ = super().__getitem__(key)
-        return number, str(NoteNumber(number))
+        return number, str(NoteValue(number))

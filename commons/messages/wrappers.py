@@ -12,7 +12,7 @@ displaying and working with control and sysex messages.
 import re
 
 from .controls import MessageType, Control, Rpn, SysEx, longform
-from ..enums import ReverbType, ChorusType, SwitchBool, NoteNumber
+from ..enums import ReverbType, ChorusType, SwitchBool, NoteValue
 from . import voices
 
 class WrappedMessage(object):
@@ -226,7 +226,7 @@ class WrappedNote(WrappedMessage):
 
     def __init__(self, message):
         super().__init__(message)
-        self.value = NoteNumber(message.note)
+        self.value = NoteValue(message.note)
         # Not the cleanest way to do it.
         # Should we fold velocity 0 into Note_OFF?
         if message.type == "note_off" or message.velocity == 0:

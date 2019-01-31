@@ -485,7 +485,7 @@ Sets chorus type. YAMAHA proprietary XG Parameter Change message.
 The same LSB fallback applies.
 
 #### XG System On
-`F0 43 10 4C 00 00 7E 00 F7`
+`F0 43 1n 4C 00 00 7E 00 F7`
 
 Not documented in the manual, YAMAHA proprietary XG Parameter Change message.
 
@@ -494,7 +494,7 @@ This seems to behave pretty much the same as GM System ON.
 This message is transmitted after the GM System ON as part of the initial dump.
 
 #### XG All Parameter Reset
-`F0 43 10 4C 00 00 7F 00 F7`
+`F0 43 1n 4C 00 00 7F 00 F7`
 
 Not documented in the manual, YAMAHA proprietary XG Parameter Change message.
 

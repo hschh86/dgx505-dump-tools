@@ -7,7 +7,6 @@ Some Enums.
 import enum
 
 _slash_surrogator = str.maketrans("_", "/")
-_sharp_surrogator = str.maketrans("s", "#")
 
 class EffectTypeEnum(enum.Enum):
     def __str__(self):
@@ -148,7 +147,7 @@ class SwitchBool(enum.Enum):
         return self.name
 
 
-# NOTES = ("C", "Db", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B")
+_sharp_surrogator = str.maketrans("s", "#")
 
 class Notes(enum.Enum):
     C = 0
@@ -168,24 +167,33 @@ class Notes(enum.Enum):
         return str.translate(self.name, _sharp_surrogator)
 
 
-# Not sure if it's a good idea to subclass int for this, but it works okay
-class NoteNumber(int):
-    __slots__ = ()
 
-    @property
-    def number(self):
-        return int(self)
+# Classes For Everyone!
+class WrappedIntValue(object):
+    """
+    A class for wrapping int values in.
+    """
+    def __init__(self, int_value):
+        self._int_value = int_value
+    
+    def __int__(self):
+        return self._int_value
+    
+
+class NoteValue(WrappedIntValue):
 
     @property
     def octave(self):
-        return (self // 12) - 2
+        return (int(self) // 12) - 2
     
     @property
     def note(self):
-        return Notes(self % 12)
+        return Notes(int(self) % 12)
 
     def __repr__(self):
-        return "NoteNumber({!r})".format(self.number)
+        return "NoteValue({!r})".format(int(self))
     
     def __str__(self):
-        return "{:03d}({!s}{:-d})".format(self.number, self.note, self.octave)
+        return "{:03d}({!s}{:-d})".format(int(self), self.note, self.octave)
+
+
