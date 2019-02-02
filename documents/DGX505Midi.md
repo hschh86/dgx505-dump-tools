@@ -222,7 +222,10 @@ What this control provides is support for 'legato' (for the lack of a better ter
 
 The value is a designation of the note, with the same values as used in note-on and note-off. If the specified note is already sounding on the channel, then on the next note-on, the note (envelope?) will transition to the note specified in the note-on message. The note-off message required to turn off the note will then be the new note, not the old one. (Consult the MIDI spec for a better explanation.)
 
-Once a note-on message is recieved after this one, the portamento-control effect is deactivated (i.e. it only affects the one next note).
+Once a note-on message is recieved after this one, the portamento-control effect is deactivated (i.e. it only affects the one next note). This is even the case if the note-on is for the same note (in this case the portamento-control effect is not applied).
+
+The portamento-control effect is not applied if the current voice is a drum/sfx kit.
+
 
 #### Harmonic Content
 Control 71: `Bn 47 vv`
@@ -346,7 +349,7 @@ Alternatively the OMNI mode messages do the same thing:
 * Control 125: `Bn 7D xx`
 
 #### Reset All Controllers
-Control 121: `Bn 79 00`
+Control 121: `Bn 79 xx`
 
 Resets the following to default values:
 
@@ -404,7 +407,7 @@ The instrument transmits and receives Active Sensing (`FE`) messages.
 #### GM System ON
 `F0 7E 7F 09 01 F7`
 
-Sets everything to default on all channels, except for MIDI Master Tuning. Universal System Exclusive message.
+Sets everything to default on all channels, except for MIDI Master Tuning. Does not reset LOCAL. Universal System Exclusive message.
 
 * Also resets the sound on all channels.
 * This affects the Reverb type and Chorus type to the "defaults" of (01)Hall1 and (---)Chorus
@@ -419,6 +422,8 @@ Changes volume of all channels. Universal System Exclusive message.
 * `mm` values used, `ll` ignored.
 
 Acts independently of channel volume.
+
+Default: `7F` (127)
 
 #### MIDI Master Tuning
 `F0 43 1n 27 30 00 00 mm ll cc F7`
@@ -498,4 +503,4 @@ This message is transmitted after the GM System ON as part of the initial dump.
 
 Not documented in the manual, YAMAHA proprietary XG Parameter Change message.
 
-This seems to behave like GM System ON, except it additionally resets MIDI Master Tuning to default. Still doesn't seem to affect the internal MSB thing.
+This seems to behave like GM System ON, except it additionally resets MIDI Master Tuning to default. Still doesn't seem to affect the internal MSB thing or LOCAL.
