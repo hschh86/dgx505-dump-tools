@@ -12,7 +12,7 @@ from . import voices
 from ..util import lazy_property
 
 
-class MessageType(str, enum.Enum):
+class MessageType(enum.Enum):
     NOTE_ON = "note_on"
     NOTE_OFF = "note_off"
     PITCHWHEEL = "pitchwheel"
@@ -24,7 +24,7 @@ class MessageType(str, enum.Enum):
     STOP = "stop"
 
 
-class Control(enum.IntEnum):
+class Control(enum.Enum):
     BANK_MSB = 0x00
     BANK_LSB = 0x20
     VOLUME = 0x07
@@ -55,7 +55,7 @@ class Control(enum.IntEnum):
     LOCAL = 0x7A
 
 
-class Rpn(tuple, enum.Enum):
+class Rpn(enum.Enum):
     PITCH_BEND_RANGE = (0x00, 0x00)
     FINE_TUNE = (0x00, 0x01)
     COARSE_TUNE = (0x00, 0x02)
@@ -68,6 +68,8 @@ class SysEx(enum.Enum):
     MASTER_TUNE = "MIDI Master Tuning"
     REVERB_TYPE = "Reverb Type"
     CHORUS_TYPE = "Chorus Type"
+    XG_ON = "XG System ON"
+    XG_RESET = "XG All Parameter Reset"
 
 
 longform = {
@@ -106,7 +108,7 @@ longform = {
     Control.NOTES_OFF:          "All Notes OFF",
     Control.NOTES_OFF_XOMNIOFF: "All Notes OFF (OMNI OFF)",
     Control.NOTES_OFF_XOMNION:  "All Notes OFF (OMNI ON)",
-    Control.RESET_CONTROLS:     "Reset All Controls",
+    Control.RESET_CONTROLS:     "Reset All Controllers",
     Control.LOCAL:              "Local ON/OFF",
     Rpn.PITCH_BEND_RANGE:       "Pitch Bend Range",
     Rpn.FINE_TUNE:              "Channel Fine Tuning",
@@ -116,18 +118,25 @@ longform = {
     SysEx.MASTER_VOL:           "MIDI Master Volume",
     SysEx.MASTER_TUNE:          "MIDI Master Tuning",
     SysEx.REVERB_TYPE:          "Reverb Type",
-    SysEx.CHORUS_TYPE:          "Chorus Type"
+    SysEx.CHORUS_TYPE:          "Chorus Type",
+    SysEx.XG_ON:                "XG System ON",
+    SysEx.XG_RESET:             "XG All Parameter Reset",
 }
 
 
-def reverb_type(msb, lsb):
+def xg_parameter_change(*args, n=0):
+    if n >> 4 != 0:
+        raise ValueError("invalid n: {}".format(n))
     return mido.Message(
-        'sysex', data=(0x43, 0x10, 0x4c, 0x02, 0x01, 0x00, msb, lsb))
+        'sysex', data=(0x43, 0x10 | n, 0x4C)+args)
+
+
+def reverb_type(msb, lsb):
+    return xg_parameter_change(0x02, 0x01, 0x00, msb, lsb)
 
 
 def chorus_type(msb, lsb):
-    return mido.Message(
-        'sysex', data=(0x43, 0x10, 0x4c, 0x02, 0x01, 0x20, msb, lsb))
+    return xg_parameter_change(0x02, 0x01, 0x20, msb, lsb)
 
 
 def master_tune(mm, ll):
@@ -152,7 +161,17 @@ def gm_on():
         'sysex', data=(0x7E, 0x7F, 0x09, 0x01))
 
 
-def cc(control, value, channel=0):
+def xg_on():
+    return xg_parameter_change(0x00, 0x00, 0x7E, 0x00)
+
+
+def xg_reset():
+    return xg_parameter_change(0x00, 0x00, 0x7F, 0x00)
+
+
+def cc(control, value=0, channel=0):
+    if isinstance(control, Control):
+        control = control.value
     return mido.Message(
         'control_change', control=control, value=value, channel=channel)
 
@@ -166,6 +185,8 @@ def local(boolean):
 
 
 def set_rpn(rpn=Rpn.NULL, channel=0):
+    if isinstance(rpn, Rpn):
+        rpn = rpn.value
     msb, lsb = rpn
     return [
         cc(Control.RPN_MSB, value=msb, channel=channel),
