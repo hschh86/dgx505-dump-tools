@@ -31,7 +31,7 @@ Keeping track of the control messages!
 
 import re
 
-from ..enums import ChorusType, ReverbType
+from ..values import ChorusType, ReverbType, SwitchBool
 from ..util import assert_low
 from .controls import MessageType, Control, Rpn, SysEx
 from . import wrappers

@@ -10,7 +10,7 @@ These maps implement the Mapping abstract data type.
 import collections.abc
 import numbers
 
-from .enums import NoteValue
+from .values import NoteValue
 
 class BytesAssertMap(collections.abc.Mapping):
     """

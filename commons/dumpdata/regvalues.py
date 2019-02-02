@@ -4,7 +4,7 @@ import functools
 
 from .. import util
 from ..maps import BytesAssertMap, RangeMap, EffectTypeMap, KeyMap
-from ..enums import HarmonyType, ReverbType, ChorusType
+from ..values import HarmonyType, ReverbType, ChorusType
 
 
 @functools.lru_cache()  # cache it, because why not eh
