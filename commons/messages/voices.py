@@ -23,6 +23,9 @@ class Voice(collections.namedtuple("Voice",
     def voice_string_extended(self):
         return "[{},{},{}] {}".format(
             self.msb, self.lsb, self.prog, self.voice_string())
+    
+    def __str__(self):
+        return self.voice_string_extended()
 
 # The Silent None Voice.
 # must redo this properly.....

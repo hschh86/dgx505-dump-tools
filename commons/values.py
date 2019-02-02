@@ -6,6 +6,8 @@ Some Enums.
 
 import enum
 
+from .util import assert_low
+
 _slash_surrogator = str.maketrans("_", "/")
 
 class EffectTypeEnum(enum.Enum):
@@ -145,6 +147,12 @@ class SwitchBool(enum.Enum):
 
     def __str__(self):
         return self.name
+
+    @classmethod
+    def from_b(cls, b):
+        assert_low(b)
+        return cls(b >= 0x40)
+
 
 
 _sharp_surrogator = str.maketrans("s", "#")
