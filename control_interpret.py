@@ -22,8 +22,11 @@ argparser.add_argument(
 
 argparser.add_argument(
     '-a', '--annotate', action='store_true',
-    help="Print out the original message as well on the same line")
+    help="Interpretation as comments on midotext")
 
+argparser.add_argument(
+    '-n', '--notes', action='store_true',
+    help="Interpret note events as well")
 
 if __name__ == '__main__':
     args = argparser.parse_args()
@@ -34,7 +37,7 @@ if __name__ == '__main__':
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
 
-    stator = controlstate.MidiControlState()
+    stator = controlstate.MidiControlState(wrap_notes=args.notes)
 
     with util.open_file_stdstream(args.filename, 'rt') as infile:
         try:

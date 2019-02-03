@@ -29,13 +29,10 @@ Keeping track of the control messages!
 
 # (For more information consult the DGX505Midi.md document)
 
-import re
-
 from ..values import ChorusType, ReverbType, SwitchBool, NoteValue
-from ..util import assert_low
 from .wrappers import (MessageType, Control, Rpn, SysEx,
     UnknownControl, UnknownSysEx, UnknownRpn,
-    RpnDataCombo, WrappedMessage)
+    RpnDataCombo, NoteEvent, WrappedMessage, WrappedChannelMessage)
 from . import voices
 
 
@@ -45,7 +42,7 @@ class MidiState(object):
 
     def __init__(self):
         self._dict = {key: None for key in self.DICT_SLOTS}
-    
+
     def reset_blank(self):
         self._dict.update((key, None) for key in self._dict)
 
@@ -54,10 +51,10 @@ class MidiState(object):
         # update from abc
         for key, value in pairs:
             self[key] = value
-    
+
     def __getitem__(self, key):
         return self._dict[key]
-    
+
     def __setitem__(self, key, value):
         if key in self.DICT_SLOTS:
             self._dict[key] = value
@@ -138,21 +135,20 @@ class ChannelState(MidiState):
         Rpn.PITCH_BEND_RANGE, Rpn.FINE_TUNE, Rpn.COARSE_TUNE,
     ))
 
-    # As well as some recognised types, which we migh want in a set?
-    # RECOGNISED_TYPES = frozenset((
-    #     MessageType.CONTROL_CHANGE,
-    #     MessageType.PROGRAM_CHANGE,
-    #     MessageType.PITCHWHEEL,
-    #     # MessageType.NOTE_ON,
-    #     # MessageType.NOTE_OFF,
-    # ))
-
-
-    RECOGNISED_TYPES = frozenset((
+    CONTROL_MESSAGE_TYPES = frozenset((
         "control_change",
         "program_change",
         "pitchwheel"
     ))
+
+    NOTE_MESSAGE_TYPES = frozenset((
+        "note_on",
+        "note_off",
+    ))
+
+    RECOGNISED_MESSAGE_TYPES = (
+        CONTROL_MESSAGE_TYPES | NOTE_MESSAGE_TYPES
+    )
 
     REG_CONTROLLERS = (
         BANK_CONTROLLERS | CONT_CONTROLLERS | RPN_CONTROLLERS
@@ -162,8 +158,8 @@ class ChannelState(MidiState):
         REG_CONTROLLERS | SWITCH_CONTROLLERS |
         OFFSET_CONTROLLERS | RPNS |
         {
-            Control.DATA_MSB, 
-            MessageType.PROGRAM_CHANGE, 
+            Control.DATA_MSB,
+            MessageType.PROGRAM_CHANGE,
             MessageType.PITCHWHEEL
         }
     )
@@ -251,24 +247,38 @@ class ChannelState(MidiState):
         if message.channel != self._channel:
             raise ValueError("Incorrect channel: {}".format(message))
 
-        if message.type not in self.RECOGNISED_TYPES:
+        if message.type not in self.RECOGNISED_MESSAGE_TYPES:
             # Pass through 'silently'
-            return None     
-        
-        if message.type == "control_change":
+            return None
+
+        if message.type in self.NOTE_MESSAGE_TYPES:
+            return self._handle_note(message)
+        elif message.type == "control_change":
             return self._handle_control(message)
         elif message.type == "program_change":
             # Do we report a no-change?
             voice = self._change_program(message.program)
-            return WrappedMessage(
-                MessageType.PROGRAM_CHANGE, voice, message)
+            return WrappedChannelMessage(
+                message, MessageType.PROGRAM_CHANGE, voice)
         elif message.type == "pitchwheel":
             self[MessageType.PITCHWHEEL] = message.pitch
-            return WrappedMessage(
-                MessageType.PITCHWHEEL, message.pitch, message)
+            return WrappedChannelMessage(
+                message, MessageType.PITCHWHEEL, message.pitch)
 
         # Shouldn't fall through here
         raise ValueError("Unrecognised message: {}".format(message))
+
+    def _handle_note(self, message):
+        # Wrap note_on and note_off.
+        # We don't keep track of them, we just wrap them
+        # possibly appropriately to the voice, but not
+        # necessarily.
+        note_type = NoteEvent(NoteValue(message.note))
+        if message.type == "note_off":
+            value = 0
+        else:
+            value = message.velocity
+        return WrappedChannelMessage(message, note_type, value)
 
     def _handle_control(self, message):
         try:
@@ -276,9 +286,9 @@ class ChannelState(MidiState):
         except ValueError:
             # Unknown Control
             control_type = UnknownControl(message.control)
-            return WrappedMessage(
-                control_type, message.value, message)
-        
+            return WrappedChannelMessage(
+                message, control_type, message.value)
+
         # Regular Values.
         # (Do we handle the bank/rpn separately?)
         if control_type in self.REG_CONTROLLERS:
@@ -297,8 +307,8 @@ class ChannelState(MidiState):
             if control_type is Control.DATA_LSB:
                 # For LSB, don't set anything.
                 # Just return a wrapped message.
-                return WrappedMessage(
-                    control_type, message.value, message)
+                return WrappedChannelMessage(
+                    message, control_type, message.value)
             # Else, we hand over to special MSB RPN handling
             elif control_type is Control.DATA_MSB:
                 return self._set_rpn(
@@ -313,17 +323,17 @@ class ChannelState(MidiState):
             if control_type is Control.RESET_CONTROLS:
                 self.reset_controllers()
             # we don't set anything
-            return WrappedMessage(control_type, None, message)            
+            return WrappedChannelMessage(message, control_type, None)
         elif control_type is Control.PORTAMENTO_CTRL:
             # Special case, we don't set anything
             value = NoteValue(message.value)
-            return WrappedMessage(control_type, value, message)
+            return WrappedChannelMessage(message, control_type, value)
         # We shouldn't fall through here
         raise ValueError("Unrecognised message: {}".format(message))
-    
+
     def _set_value(self, wrap_type, value, message):
         self[wrap_type] = value
-        return WrappedMessage(wrap_type, value, message)
+        return WrappedChannelMessage(message, wrap_type, value)
 
     def _set_rpn(self, wrap_type, msb_value, message):
         rpn = self.rpn()
@@ -334,24 +344,25 @@ class ChannelState(MidiState):
             # that the DGX-505 seems to do it)
             self[Control.DATA_MSB] = msb_value
             # Then, we have to interpret the result.
-            if rpn in self.RPNS:  
+            if rpn in self.RPNS:
                 # Known RPN.
                 if rpn is Rpn.PITCH_BEND_RANGE:
                     # This is as-is, although should we clamp?
                     value = msb_value
-                else:  
+                else:
                     # Fine or coarse tune, an offset.
                     value = msb_value - 0x40
                 self[rpn] = value
-            else:  
+            else:
                 # Unknown or Null RPN.
-                value = None            
+                value = None
         else:
             # The value doesn't get set, so should we wrap the
             # message with the current value of the current rpn?
             value = None
-        return WrappedMessage(RpnDataCombo(wrap_type, rpn), value, message)
-            
+        return WrappedChannelMessage(
+            message, RpnDataCombo(wrap_type, rpn), value)
+
 
 
     # def _iter_values(self):
@@ -374,7 +385,7 @@ class MidiControlState(MidiState):
         SysEx.REVERB_TYPE, SysEx.CHORUS_TYPE,
     ))
 
-    def __init__(self):
+    def __init__(self, wrap_notes=True):
         super().__init__()
 
         # There are 16 channels, we'll simply use a list to keep track of them
@@ -382,6 +393,9 @@ class MidiControlState(MidiState):
 
         # Additionally, we also have the sysex and a few other parameters
         # to keep track of.
+
+        # Should we wrap notes?
+        self.wrap_notes = wrap_notes
 
     def reset_gm(self):
         self.update((
@@ -406,17 +420,19 @@ class MidiControlState(MidiState):
         Feed a mido message into the object, updating the internal state.
         Returns wrapped message
         """
-
-        if message.type == "control_change":
+        if (self.wrap_notes and
+                message.type in ChannelState.NOTE_MESSAGE_TYPES):
+            return self._channels[message.channel].feed(message)
+        elif message.type == "control_change":
             if message.control == Control.LOCAL.value:
                 # LOCAL message.
                 value = SwitchBool.from_b(message.value)
                 self.local(value)
                 return WrappedMessage(
-                    Control.LOCAL, value, message, no_channel=True)
+                    message, Control.LOCAL, value)
             else:
                 return self._channels[message.channel].feed(message)
-        elif message.type in ChannelState.RECOGNISED_TYPES:
+        elif message.type in ChannelState.CONTROL_MESSAGE_TYPES:
             return self._channels[message.channel].feed(message)
         elif message.type == "sysex":
             return self._handle_sysex(message)
@@ -432,13 +448,13 @@ class MidiControlState(MidiState):
             sysex_type = SysEx.GM_ON
             self.reset_gm()
 
-        elif (len(data) == 6 and 
+        elif (len(data) == 6 and
               data[:4] == (0x7F, 0x7F, 0x04, 0x01)):
             # MIDI Master Volume
             # F0 7F 7F 04 01 xx mm F7
             sysex_type = SysEx.MASTER_VOL
             value = data[5]
-            
+
         elif (data[0] == 0x43 and data[1] >> 4 == 1):
             # Yamaha Exclusive Messages F0 43 1x .. F7
             if (len(data) < 9 and data[2] == 0x4C):
@@ -467,8 +483,8 @@ class MidiControlState(MidiState):
                         self.reset_gm()
 
                     elif b == (0x7F, 0x00):
-                        # XG All Parameter Reset  
-                        # F0 43 1x 4C 00 00 7F 00 F7  
+                        # XG All Parameter Reset
+                        # F0 43 1x 4C 00 00 7F 00 F7
                         sysex_type = SysEx.XG_RESET
                         self.reset_param()
 
@@ -489,8 +505,8 @@ class MidiControlState(MidiState):
                 self[sysex_type] = value
 
         return WrappedMessage(
-            sysex_type, value, message, no_channel=True)
-        
+            message, sysex_type, value)
+
 
 
 

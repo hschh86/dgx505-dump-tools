@@ -127,10 +127,10 @@ _LONGFORM_MAP = {
 }
 
 
-class UnknownControl(namedtuple('UnknownControl', 'value')):   
+class UnknownControl(namedtuple('UnknownControl', 'value')):
     def __str__(self):
         return "[Control {}]".format(self.value)
-    
+
 
 class UnknownSysEx(namedtuple('UnknownSysEx', 'value')):
     def __str__(self):
@@ -138,19 +138,26 @@ class UnknownSysEx(namedtuple('UnknownSysEx', 'value')):
             format(b, "02X") for b in self.value
         ))
 
+
 class UnknownRpn(namedtuple('UnknownRpn', 'value')):
     def __str__(self):
         return "[RPN {:02X} {:02X}".format(*self.value)
+
 
 class RpnDataCombo(namedtuple('RpnDataCombo', 'control rpn')):
     def __str__(self):
         return "{0.control!s}: {0.rpn!s}".format(self)
 
 
+class NoteEvent(namedtuple('NoteEvent', 'note')):
+    def __str__(self):
+        return "Note {!s}".format(self.note)
+
+
 class WrappedMessage(object):
 
-    def __init__(self, wrap_type=None, value=None, 
-                 message=None, no_channel=False):
+    def __init__(self,
+             message=None, wrap_type=None, value=None):
         """
         Wrap a mido message.
         """
@@ -159,18 +166,21 @@ class WrappedMessage(object):
         self.wrap_type = wrap_type
         self.value = value
         self.message = message
-        if no_channel:
-            self.channel = None
-        else:
-            self.channel = self.message.channel
 
     def __str__(self):
         return " ".join(
-            str(i) for i in (
-                self.channel, self.wrap_type, self.value)
+            str(i) for i in (self.wrap_type, self.value)
             if i is not None)
 
     def __repr__(self):
         return "<{!s} {!r}>".format(self, self.message)
 
 
+class WrappedChannelMessage(WrappedMessage):
+
+    @property
+    def channel(self):
+        return self.message.channel
+
+    def __str__(self):
+        return "{:X} {}".format(self.channel, super().__str__())
