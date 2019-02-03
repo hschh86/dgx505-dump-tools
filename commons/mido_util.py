@@ -98,15 +98,24 @@ def readin_bytes(infile):
     return iter(parser)
 
 
-def readin_strings(infile):
+def readin_strings(infile, comment=None):
     """
     Read in string-encoded messages separated by line from a text mode file
     object. Similar to mido.parse_string_stream, except doesn't deal with the
     exceptions.
+    Can also ignore simple comments, delimited by the comment parameter
+    (uses str.partition internally).
     Generator, yields messages lazily.
     """
-    for line in infile:
-        yield mido.parse_string(line)
+    if comment is not None:
+        for line in infile:
+            msgl, _, _ = line.partition(comment)
+            msg = msgl.strip()
+            if msg:
+                yield mido.parse_string(msg)
+    else:
+        for line in infile:
+            yield mido.parse_string(line)
 
 
 def read_syx_file(infile):

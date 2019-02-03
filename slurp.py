@@ -35,6 +35,10 @@ argparser.add_argument(
     help="Use the clock (since epoch) time instead of elapsed time")
 
 argparser.add_argument(
+    '-n', '--noclock', action='store_true',
+    help="Ignore MIDI real-time clock (F8) messages")
+
+argparser.add_argument(
     '-q', '--quiet', action='store_true',
     help="Don't print progress messages to stderr")
 
@@ -42,19 +46,22 @@ argparser.add_argument(
 # is using the callback-thread thing the right way to do this?
 # dunno. super timer accuracy isn't important anyway
 
-def new_callback(clocktime=False):
+def new_callback(clocktime=False, noclock=False):
     # this is a bit of an overcomplicated way to do it but whatever
     if clocktime:
         timer = time.time
     else:
         timer = offsetTimer()
+    
+    use_clock = not noclock
 
     def msg_callback(message):
-        # mutate the message!
-        message.time = timer()
-        # write text to stdout. Also add a line break
-        sys.stdout.write(str(message)+'\n')
-        sys.stdout.flush()
+        if use_clock or message.type != "clock":
+            # mutate the message!
+            message.time = timer()
+            # write text to stdout. Also add a line break
+            sys.stdout.write(str(message)+'\n')
+            sys.stdout.flush()
 
     return msg_callback
 
@@ -62,7 +69,7 @@ def new_callback(clocktime=False):
 def main(args):
     logger = logging.getLogger('slurp')
     with mido_util.open_input(args.port, args.guessport, args.virtual,
-                              callback=new_callback(args.clocktime)) as inport:
+                              callback=new_callback(args.clocktime, args.noclock)) as inport:
         try:
             logger.info('Reading from port %r. CtrlC to stop',
                         inport.name)

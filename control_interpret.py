@@ -1,42 +1,28 @@
 """
 control_interpret.py
 
-A bit of an experiment.
-
-It's like slurp, except we only look for and interpret the controls.
-Also doesn't give mfile compatible output.
+Reads a stream of mido text,  prints out an interpetation of the
+control messages. Optionally, can annotate
 """
 
 
 import argparse
 import logging
+import sys
 
-from commons import mido_util
+from commons import util, mido_util
 from commons.messages import controlstate
 
 argparser = argparse.ArgumentParser(
     description="Print out an interpretation of the control messages.")
-argparser.add_argument(
-    'input', type=str,
-    help="Port to read from (run 'mido-ports' to list available ports)"
-         " / Filename if applicable")
-
-ingroup = argparser.add_argument_group("Input options")
-inargs = ingroup.add_mutually_exclusive_group()
-inargs.add_argument(
-    '-g', '--guessport', action='store_true',
-    help="Guess which port to use (partial name match on PORT)")
-inargs.add_argument(
-    '-V', '--virtual', action='store_true',
-    help='Use virtual port')
-inargs.add_argument(
-    '-f', '--mfile', action='store_true',
-    help="Read from mido message text file instead of port")
 
 argparser.add_argument(
-    '-q', '--quiet', action='store_true',
-    help="Don't print progress messages to stderr")
+    'filename', type=str,
+    help="file to read from")
 
+argparser.add_argument(
+    '-a', '--annotate', action='store_true',
+    help="Print out the original message as well on the same line")
 
 
 if __name__ == '__main__':
@@ -46,22 +32,25 @@ if __name__ == '__main__':
     logger = logging.getLogger('control_interpret')
     handler = logging.StreamHandler()
     logger.addHandler(handler)
-    if args.quiet:
-        logger.setLevel(logging.WARNING)
-    else:
-        logger.setLevel(logging.INFO)
+    logger.setLevel(logging.INFO)
 
     stator = controlstate.MidiControlState()
 
-    if args.mfile:
-        message_source = mido_util.read_messages_file(
-            args.input, mfile=True, log='control_interpret')
-    else:
-        message_source = mido_util.open_input(
-            args.input, args.guessport, args.virtual)
-    
-    with message_source as inport:
-        for message in inport:
-            output = stator.feed_message(message)
-            if output is not None:
-                print(output)
+    with util.open_file_stdstream(args.filename, 'rt') as infile:
+        try:
+            messages = mido_util.readin_strings(infile, comment='#')
+            for message in messages:
+                wrap = stator.feed(message)
+                if args.annotate:
+                    sys.stdout.write(str(message))
+                    if wrap is not None:
+                        sys.stdout.write(' # ')
+                        sys.stdout.write(str(wrap))
+                    sys.stdout.write('\n')
+                    sys.stdout.flush()
+                else:
+                    if wrap is not None:
+                        sys.stdout.write(str(wrap)+'\n')
+                        sys.stdout.flush()
+        except KeyboardInterrupt:
+            logger.info("Stopping on KeyboardInterrupt")
