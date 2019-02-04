@@ -1,3 +1,7 @@
+# Table of Default Settings for Main and Dual Voices
+
+Note: Each voice also has the default Pan of 64.
+
 |Main Voice                          |M Volume|M Octave|M Reverb Lv|M Chorus Lv|Dual Voice                     |D Volume|D Octave|D Reverb Lv|D Chorus Lv|
 |:-----------------------------------|-------:|-------:|----------:|----------:|:------------------------------|-------:|-------:|----------:|----------:|
 |001 Live! Grand Piano               |     110|       0|         20|          0|054 String Ensemble            |      36|       0|         50|          0|
