@@ -1,0 +1,36 @@
+Chord Name,Abbreviation,Normal Voicing,Display,*
+Major,M,1 - 3 - 5,C,
+Add ninth,(9),1 - 2 - 3 - 5,C9,
+Sixth,6,1 - (3) - 5 - 6,C6,
+Sixth ninth,6(9),1 - 2 - 3 - (5) - 6,C6^9,*
+Major seventh,M7,1 - 3 - (5) - 7 or 1 - (3) - 5 - 7,CM7,
+Major seventh ninth,M7(9),1 - 2 - 3 - (5) - 7,Cm7^9,*
+Major seventh add sharp eleventh,M7(♯11),1 - (2) - 3 - ♯4 - 5 - 7 or 1 - 2 - 3 - ♯4 - (5) - 7,CM7^♯11,*
+Flatted fifth,(♭5),1 - 3 - b5,C^♭5,*
+Major seventh flatted fifth,M7♭5,1 - 3 - ♭5 - 7,Cm7^♭5,*
+Suspended fourth,sus4,1 - 4 - 5,Csus4,
+Augmented,aug,1 - 3 - ♯5,Caug,
+Major seventh augmented,M7aug,1 - (3) - ♯5 - 7,CM7aug,*
+Minor,m,1 - ♭3 - 5,Cm,
+Minor add ninth,m(9),1 - 2 - ♭3 - 5,Cm9,
+Minor sixth,m6,1 - ♭3 - 5 - 6,Cm6,
+Minor seventh,m7,1 - ♭3 - (5) - ♭7,Cm7,
+Minor seventh ninth,m7(9),1 - 2 - ♭3 - (5) - ♭7,Cm7^9,
+Minor seventh add eleventh,m7(11),1 - (2) - ♭3 - 4 - 5 - (♭ 7),Cm7^11,*
+Minor major seventh,mM7,1 - ♭3 - (5) - 7,CmM7,
+Minor major seventh ninth,mM7(9),1 - 2 - ♭3 - (5) - 7,CmM7^9,*
+Minor seventh flatted fifth,m7♭5,1 - ♭3 - ♭5 - ♭7,Cm7^♭5,
+Minor major seventh flatted fifth,mM7♭5,1 - ♭3 - ♭5 - 7,CmM7^♭5,*
+Diminished,dim,1 - ♭3 - ♭5,Cdim,
+Diminished seventh,dim7,1 - ♭3 - ♭5 - 6,Cdim7,
+Seventh,7,1 - 3 - (5) - ♭7 or 1 - (3) - 5 - ♭7,C7,
+Seventh flatted ninth,7(♭9),1 - ♭2 - 3 - (5) - ♭7,C7^♭9,
+Seventh add flatted thirteenth,7(♭13),1 - 3 - 5 - ♭6 - ♭7,C7^♭13,
+Seventh ninth,7(9),1 - 2 - 3 - (5) - ♭7,C7^9,
+Seventh add sharp eleventh,7(♯11),1 - (2) - 3 - ♯4 - 5 - ♭7 or 1 - 2 - 3 - ♯4 - (5) - ♭7,C7^♯11,
+Seventh add thirteenth,7(13),1 - 3 - (5) - 6 - ♭7,C7^13,
+Seventh sharp ninth,7(♯9),1 -  ♯2 - 3 - (5) - ♭7,C7^♯9,
+Seventh flatted fifth,7♭5,1 - 3 - ♭5 - ♭7,C7^♭5,*
+Seventh augmented,7aug,1 - 3 - ♯5 - ♭7,C7aug,
+Seventh suspended fourth,7sus4,1 - 4 - (5) - ♭7,C7sus4,
+Suspended second,sus2,1 - 2 - 5,Csus2,*
