@@ -508,41 +508,6 @@ class MidiControlState(MidiState):
             message, sysex_type, value)
 
 
-
-
-
-
-
-    #    wrapped = wrappers.wrap(msg)
-
-    #     # For now, we don't pass note messages in.
-    #     # Might do something with drum kits later, though.
-    #     if wrapped.wrap_type in {None, MessageType.NOTE_ON,
-    #                              MessageType.NOTE_OFF}:
-    #         return wrapped
-
-    #     if wrapped.channel is None:
-    #         # Global Settings.
-    #         if wrapped.wrap_type is Control.LOCAL:
-    #             self._local = wrapped.value
-    #         elif wrapped.wrap_type is SysEx.GM_ON:
-    #             # TODO: Find a way to reset to default values.
-    #             # whatever they are.
-    #             self.gm_reset()
-    #         elif wrapped.wrap_type is SysEx.MASTER_VOL:
-    #             self._master_vol = wrapped.value
-    #         elif wrapped.wrap_type is SysEx.MASTER_TUNE:
-    #             self._master_tune = wrapped.value
-    #         elif wrapped.wrap_type is SysEx.REVERB_TYPE:
-    #             self._reverb = wrapped.value
-    #         elif wrapped.wrap_type is SysEx.CHORUS_TYPE:
-    #             self._chorus = wrapped.value
-    #         return wrapped
-    #     else:
-    #         # Channel Setting.
-    #         # pass message through.
-    #         return self._channels[wrapped.channel].feed_wrapped(wrapped)
-
     # def _iter_values(self):
     #     yield "Local", self._local
     #     yield "Master volume", self._master_vol
