@@ -106,9 +106,10 @@ class ChannelState(MidiState):
         Control.DATA_INC, Control.DATA_DEC,
     ))
 
-    # The Very Special Portamento Controller
+    # Special Controllers, which we pass through
     SPECIAL_CONTROLLERS = frozenset((
         Control.PORTAMENTO_CTRL,
+        Control.VARIATION
     ))
 
     # The Special Channel Mode Messages.
@@ -328,6 +329,12 @@ class ChannelState(MidiState):
             # Special case, we don't set anything
             value = NoteValue(message.value)
             return WrappedChannelMessage(message, control_type, value)
+        elif control_type is Control.VARIATION:
+            # The DGX-505 doesn't support this message, but
+            # it's present in recorded user songs.
+            # Special case, We just return straight through?
+            return WrappedChannelMessage(
+                message, control_type, message.value)
         # We shouldn't fall through here
         raise ValueError("Unrecognised message: {}".format(message))
 

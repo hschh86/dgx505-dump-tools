@@ -9,6 +9,7 @@ displaying and working with control and sysex messages.
 
 import enum
 from collections import namedtuple
+from ..util import hexspace
 
 class _LongformEnum(enum.Enum):
     def __str__(self):
@@ -56,6 +57,10 @@ class Control(_LongformEnum):
     NOTES_OFF_XOMNION = 0x7D
     RESET_CONTROLS = 0x79
     LOCAL = 0x7A
+
+    # Control 5E / 94, not supported by DGX-505,
+    # but present in User Song data?
+    VARIATION = 0x5E
 
 
 class Rpn(_LongformEnum):
@@ -113,6 +118,7 @@ _LONGFORM_MAP = {
     Control.NOTES_OFF_XOMNION:  "All Notes OFF (OMNI ON)",
     Control.RESET_CONTROLS:     "Reset All Controllers",
     Control.LOCAL:              "Local ON/OFF",
+    Control.VARIATION:          "[Voice Variation Level]",
     Rpn.PITCH_BEND_RANGE:       "Pitch Bend Range",
     Rpn.FINE_TUNE:              "Channel Fine Tuning",
     Rpn.COARSE_TUNE:            "Channel Coarse Tuning",
@@ -129,14 +135,12 @@ _LONGFORM_MAP = {
 
 class UnknownControl(namedtuple('UnknownControl', 'value')):
     def __str__(self):
-        return "[Control {}]".format(self.value)
+        return "[Control {:02X}]".format(self.value)
 
 
 class UnknownSysEx(namedtuple('UnknownSysEx', 'value')):
     def __str__(self):
-        return "[SysEx {}]".format(" ".join(
-            format(b, "02X") for b in self.value
-        ))
+        return "[SysEx {}]".format(hexspace(self.value))
 
 
 class UnknownRpn(namedtuple('UnknownRpn', 'value')):
@@ -174,6 +178,12 @@ class WrappedMessage(object):
 
     def __repr__(self):
         return "<{!s} {!r}>".format(self, self.message)
+
+    def __eq__(self, other):
+        # Test for equality just by from components.
+        return (self.wrap_type == other.wrap_type and
+                self.value == other.value and
+                self.message == other.message)
 
 
 class WrappedChannelMessage(WrappedMessage):

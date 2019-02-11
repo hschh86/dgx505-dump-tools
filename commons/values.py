@@ -183,24 +183,31 @@ class WrappedIntValue(object):
     """
     def __init__(self, int_value):
         self._int_value = int_value
-    
+
     def __int__(self):
         return self._int_value
-    
+
+    def hex(self):
+        """
+        Return a hex string (at least 2 digits padded with 0)
+        of the int value
+        """
+        return format(self._int_value, "02X")
+
 
 class NoteValue(WrappedIntValue):
 
     @property
     def octave(self):
         return (int(self) // 12) - 2
-    
+
     @property
     def note(self):
         return Notes(int(self) % 12)
 
     def __repr__(self):
         return "NoteValue({!r})".format(int(self))
-    
+
     def __str__(self):
         return "{:03d}({!s}{:-d})".format(int(self), self.note, self.octave)
 

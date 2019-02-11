@@ -13,16 +13,14 @@ import collections.abc
 YAMAHA = 0x43
 
 
-# # eprint
-# def eprint(*args, **kwargs):
-#     """Print to stderr."""
-#     print(*args, file=sys.stderr, **kwargs)
-
-
-# # dummy
-# def nop(*args, **kwargs):
-#     """Does nothing."""
-#     pass
+# Formatting
+def hexspace(seq):
+    """
+    Returns a string representation as two digit
+    hexadecimal numbers separated by spaces for a sequence
+    of byte-sized numbers.
+    """
+    return " ".join(format(b, "02X") for b in seq)
 
 
 # slicing and iteration
