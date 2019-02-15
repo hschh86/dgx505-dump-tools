@@ -1,4 +1,4 @@
-Number,Name,Category,Bank MSB,Bank LSB,Program
+number,name,category,msb,lsb,prog
 1,Live! Grand Piano,PIANO,0,113,0
 2,Live! Warm Grand Piano,PIANO,0,114,0
 3,Grand Piano,PIANO,0,112,0
