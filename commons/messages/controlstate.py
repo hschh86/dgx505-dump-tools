@@ -36,7 +36,7 @@ import mido
 from ..values import ChorusType, ReverbType, SwitchBool, NoteValue
 from .wrappers import (
     MessageType, Control, Rpn, SysEx, SeqSpec, Special,
-    UnknownControl, UnknownSysEx, UnknownRpn, 
+    UnknownControl, UnknownSysEx, UnknownRpn, UnknownSeqSpec,
     RpnDataCombo, NoteEvent, WrappedMessage, WrappedChannelMessage)
 from . import voices
 
@@ -532,7 +532,6 @@ class MidiControlState(MidiState):
                 # F0 43 7E 02 rr tt rr tt F7
                 sysex_type = SysEx.CHORD
 
-
         if sysex_type is None:
             sysex_type = UnknownSysEx(message.data)
         else:
@@ -602,11 +601,21 @@ class MidiControlState(MidiState):
         Handling for supported sequencer-specific
         meta-events.
         """
-        # Yamaha Meta Events
         seqspec_type = None
         value = None
 
-
+        # Yamaha Meta Events
+        # data = 43 76 1A tt ..
+        data = message.data        
+        if data[:3] == (0x43, 0x76, 0x1A):
+            pass
+        
+        else:
+            seqspec_type = UnknownSeqSpec(data)
+        
+        return WrappedMessage(
+            message, seqspec_type, value
+        )
 
 
 
