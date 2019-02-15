@@ -155,6 +155,22 @@ class SwitchBool(enum.Enum):
         return cls(b >= 0x40)
 
 
+_space_surrogator = str.maketrans("_", " ")
+
+class AcmpSection(enum.Enum):
+    MAIN_A = 0x00
+    FILL_B = 0x02
+    INTRO_A = 0x03
+    ENDING_A = 0x04
+    MAIN_B = 0x05
+    FILL_A = 0x06
+    INTRO_B = 0x08
+    ENDING_B = 0x09
+
+    def __str__(self):
+        return str.translate(self.name, _space_surrogator)
+
+
 class NoteBase(enum.Enum):
     C = "C"
     D = "D"
@@ -163,6 +179,7 @@ class NoteBase(enum.Enum):
     G = "G"
     A = "A"
     B = "B"
+
 
 _asciidental_surrogator = str.maketrans("♯♭", "#b")
 _rev_surrogator = str.maketrans("#b", "♯♭", "♮")
@@ -211,12 +228,19 @@ class RootNote(namedtuple("RootNote", "base acc")):
 ROOT_NOTE_SEQ = ListMapping(enumerate(RootNote.from_name(x) for x in 
     ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "G♯", "A", "B♭", "B"]))
 
-ENHARMONIA = {note: i for i, note in ROOT_NOTE_SEQ.items()}
-for base in NoteBase:
-    i = ENHARMONIA[RootNote(base)]
-    l = len(ROOT_NOTE_SEQ)
-    for acc, j in [(NoteAcc.FLAT, -1), (NoteAcc.SHARP, +1)]:
-        ENHARMONIA[RootNote(base, acc)] = (i+j) % l
+_ENHARMONIA = {note: i for i, note in ROOT_NOTE_SEQ.items()}
+_ENHARMONIA_OFFSET = {NoteAcc.FLAT: -1, NoteAcc.SHARP: +1}
+
+def enharmonia(note):
+    try:
+        return _ENHARMONIA[note]
+    except KeyError:
+        b = _ENHARMONIA[RootNote(note.base)]
+        a = _ENHARMONIA_OFFSET[note.acc]
+        return (b+a) % len(_ENHARMONIA)
+
+def enharmonic(note_a, note_b):
+    return enharmonia(note_a) == enharmonia(note_b)
 
 
 # Classes For Everyone!
