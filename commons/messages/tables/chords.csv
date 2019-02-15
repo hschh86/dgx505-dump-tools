@@ -1,0 +1,44 @@
+code,name,abbr,abbr_format,disp_format
+00,major,M,{},{}
+01,sixth,6,{}6,{}6
+02,major seventh,M7,{}M7,{}M7
+03,major seventh add sharp eleventh,M7(♯11),{}M7(♯11),{}M7^♯11
+04,add ninth,(9),{}(9),{}9
+05,major seventh ninth,M7(9),{}M7(9),{}m7^9
+06,sixth ninth,6(9),{}6(9),{}6^9
+07,augmented,aug,{}aug,{}aug
+08,minor,m,{}m,{}m
+09,minor sixth,m6,{}m6,{}m6
+0A,minor seventh,m7,{}m7,{}m7
+0B,minor seventh flatted fifth,m7♭5,{}m7♭5,{}m7^♭5
+0C,minor add ninth,m(9),{}m(9),{}m9
+0D,minor seventh ninth,m7(9),{}m7(9),{}m7^9
+0E,minor seventh add eleventh,m7(11),{}m7(11),{}m7^11
+0F,minor major seventh,mM7,{}mM7,{}mM7
+10,minor major seventh ninth,mM7(9),{}mM7(9),{}mM7^9
+11,diminished,dim,{}dim,{}dim
+12,diminished seventh,dim7,{}dim7,{}dim7
+13,seventh,7,{}7,{}7
+14,seventh suspended fourth,7sus4,{}7sus4,{}7sus4
+15,seventh flatted fifth,7♭5,{}7♭5,{}7^♭5
+16,seventh ninth,7(9),{}7(9),{}7^9
+17,seventh add sharp eleventh,7(♯11),{}7(♯11),{}7^♯11
+18,seventh add thirteenth,7(13),{}7(13),{}7^13
+19,seventh flatted ninth,7(♭9),{}7(♭9),{}7^♭9
+1A,seventh add flatted thirteenth,7(♭13),{}7(♭13),{}7^♭13
+1B,seventh sharp ninth,7(♯9),{}7(♯9),{}7^♯9
+1C,major seventh augmented,M7aug,{}M7aug,{}M7aug
+1D,seventh augmented,7aug,{}7aug,{}7aug
+1E,octave,1+8,{}1+8,{}1+8
+1F,perfect fifth,1+5,{}1+5,{}1+5
+20,suspended fourth,sus4,{}sus4,{}sus4
+21,suspended second,sus2,{}sus2,{}sus2
+22,(no chord),(no chord),[{} (no chord)],
+23,major seventh flatted fifth,M7♭5,{}M7♭5,{}m7^♭5
+24,flatted fifth,(♭5),{}(♭5),{}^♭5
+25,minor major seventh flatted fifth,mM7♭5,{}mM7♭5,{}mM7^♭5
+26,(1+♭2+♭3),(1+♭2+♭3),[{}* (1+♭2+♭3)],{}*
+27,(1+♭2+♭5),(1+♭2+♭5),[{}* (1+♭2+♭5)],{}*
+28,(1+♭2+5),(1+♭2+5),[{}* (1+♭2+5)],{}*
+29,(1+♭2+♭7),(1+♭2+♭7),[{}* (1+♭2+♭7)],{}*
+2A,(1+2+3),(1+2+3),[{}* (1+2+3)],{}*

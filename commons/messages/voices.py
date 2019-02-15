@@ -40,7 +40,7 @@ class _VoiceLookup(object):
 
     @util.lazy_property
     def dicts(self):
-        _numbers = {}
+        _numbers = util.ListMapping(start=1)
         _bank_programs = {}
         _names_nonxg = {}
         _names_xg = {}
@@ -75,6 +75,14 @@ class _VoiceLookup(object):
     def names_xg_first(self):
         return collections.ChainMap(self.dicts.names_xg, self.dicts.names_nonxg)
 
+    @util.lazy_property
+    def numbers(self):
+        return self.dicts.numbers
+
+    @util.lazy_property
+    def bank_programs(self):
+        return self.dicts.bank_programs
+
 _LOOKUP = _VoiceLookup()
 
 def from_name(name, prefer_xg=False):
@@ -96,7 +104,7 @@ def from_number(number):
     Returns a Voice namedtuple.
     KeyError raised if no voice has that number.
     """
-    return _LOOKUP.dicts.numbers[number]
+    return _LOOKUP.numbers[number]
 
 
 def from_bank_program(msb, lsb, prog):
@@ -108,7 +116,7 @@ def from_bank_program(msb, lsb, prog):
     Returns a Voice namedtuple.
     KeyError raised if no voice has those bytes.
     """
-    return _LOOKUP.dicts.bank_programs[(msb, lsb, prog)]
+    return _LOOKUP.bank_programs[(msb, lsb, prog)]
 
 
 def from_bank_program_default(msb, lsb, prog):

@@ -305,3 +305,44 @@ def open_file_stdstream(filename, *args, **kwargs):
         return nonclosing_stdstream(*args, **kwargs)
     else:
         return open(filename, *args, **kwargs)
+
+
+# A nice Mapping.
+class ListMapping(collections.abc.Mapping):
+    """
+    A mapping like a dict, but it's for a list underneath
+    For storing consecutive integer keys.
+    """
+    def __init__(self, iterable=(), start=0):
+        """
+        Initialise a ListMapping.
+        Items must be added with consecutively increasing integer keys.
+        Start is the starting index.
+        """
+        self._start = start
+        self._list = []
+        for key, value in iterable:
+            self[key] = value
+    
+    def __getitem__(self, key):
+        index = key - self._start
+        if index < 0:
+            # We don't want to deal with negative indices
+            raise KeyError(key)
+        try:
+            return self._list[key - self._start]
+        except IndexError:
+            raise KeyError(key)
+    
+    def __iter__(self):
+        return iter(range(self._start, len(self._list)+self._start))
+    
+    def __len__(self):
+        return len(self._list)
+    
+    # SetItem. We can only set consecutively
+    def __setitem__(self, key, value):
+        if key == len(self._list)+self._start:
+            self._list.append(value)
+        else:
+            raise IndexError("Key {!r} added in invalid order".format(key))

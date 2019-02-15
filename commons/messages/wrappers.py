@@ -16,7 +16,13 @@ class _LongformEnum(enum.Enum):
         return _LONGFORM_MAP.get(self, super().__str__())
 
 
+class _StringValueEnum(enum.Enum):
+    def __str__(self):
+        return str(self.value)
+
+
 class MessageType(_LongformEnum):
+    # Regular Message Types
     NOTE_ON = "note_on"
     NOTE_OFF = "note_off"
     PITCHWHEEL = "pitchwheel"
@@ -26,6 +32,9 @@ class MessageType(_LongformEnum):
     CLOCK = "clock"
     START = "start"
     STOP = "stop"
+    # Meta-Message Types
+    TEMPO = "set_tempo"
+    SEQSPEC = "sequencer_specific"
 
 
 class Control(_LongformEnum):
@@ -70,7 +79,8 @@ class Rpn(_LongformEnum):
     NULL = (0x7F, 0x7F)
 
 
-class SysEx(_LongformEnum):
+class SysEx(_StringValueEnum):
+    # General
     GM_ON = "GM System ON"
     MASTER_VOL = "MIDI Master Volume"
     MASTER_TUNE = "MIDI Master Tuning"
@@ -78,6 +88,21 @@ class SysEx(_LongformEnum):
     CHORUS_TYPE = "Chorus Type"
     XG_ON = "XG System ON"
     XG_RESET = "XG All Parameter Reset"
+    # Song Exclusive
+    CHORD = "Sysex Chord Change"
+
+
+class SeqSpec(_StringValueEnum):
+    # Sequencer-Specific Meta-Messages
+    STYLE = "Style"
+    STYLE_VOL = "Style Volume"
+    SECTION = "Section Change"
+    CHORD = "Meta Chord Change"
+
+
+class Special(_StringValueEnum):
+    # For things that don't really fit anywhere else
+    OCTAVE = "Channel Voice Octave"
 
 
 _LONGFORM_MAP = {
@@ -90,6 +115,8 @@ _LONGFORM_MAP = {
     MessageType.CLOCK:          "Clock",
     MessageType.START:          "Start",
     MessageType.STOP:           "Stop",
+    MessageType.TEMPO:          "Tempo Change",
+    MessageType.SEQSPEC:        "Sequencer Specific",
     Control.BANK_MSB:           "Bank MSB",
     Control.BANK_LSB:           "Bank LSB",
     Control.VOLUME:             "Voice Volume",
@@ -123,53 +150,56 @@ _LONGFORM_MAP = {
     Rpn.FINE_TUNE:              "Channel Fine Tuning",
     Rpn.COARSE_TUNE:            "Channel Coarse Tuning",
     Rpn.NULL:                   "Null",
-    SysEx.GM_ON:                "GM System ON",
-    SysEx.MASTER_VOL:           "MIDI Master Volume",
-    SysEx.MASTER_TUNE:          "MIDI Master Tuning",
-    SysEx.REVERB_TYPE:          "Reverb Type",
-    SysEx.CHORUS_TYPE:          "Chorus Type",
-    SysEx.XG_ON:                "XG System ON",
-    SysEx.XG_RESET:             "XG All Parameter Reset",
 }
 
 
 class UnknownControl(namedtuple('UnknownControl', 'value')):
+    __slots__ = ()
     def __str__(self):
         return "[Control {:02X}]".format(self.value)
 
 
 class UnknownSysEx(namedtuple('UnknownSysEx', 'value')):
+    __slots__ = ()
     def __str__(self):
         return "[SysEx {}]".format(hexspace(self.value))
 
 
-class UnknownRpn(namedtuple('UnknownRpn', 'value')):
+class UnknownSeqSpec(namedtuple('UnknownSeqSpec', 'value')):
+    __slots__ = ()
     def __str__(self):
-        return "[RPN {:02X} {:02X}".format(*self.value)
+        return "[SeqSpec {}]".format(hexspace(self.value))
+
+
+class UnknownRpn(namedtuple('UnknownRpn', 'value')):
+    __slots__ = ()
+    def __str__(self):
+        return "[RPN {:02X} {:02X}]".format(*self.value)
 
 
 class RpnDataCombo(namedtuple('RpnDataCombo', 'control rpn')):
+    __slots__ = ()
     def __str__(self):
         return "{0.control!s}: {0.rpn!s}".format(self)
 
 
 class NoteEvent(namedtuple('NoteEvent', 'note')):
+    __slots__ = ()
     def __str__(self):
         return "Note {!s}".format(self.note)
 
 
-class WrappedMessage(object):
+class WrappedMessage(namedtuple('WrappedMessage', 'message wrap_type value')):
+    __slots__ = ()
 
-    def __init__(self,
+    def __new__(cls,
              message=None, wrap_type=None, value=None):
         """
         Wrap a mido message.
         """
         # I suppose we could use FrozenMessages here,
         # but we are all responsible adults, right?
-        self.wrap_type = wrap_type
-        self.value = value
-        self.message = message
+        return super().__new__(cls, message, wrap_type, value)
 
     def __str__(self):
         return " ".join(
@@ -178,12 +208,6 @@ class WrappedMessage(object):
 
     def __repr__(self):
         return "<{!s} {!r}>".format(self, self.message)
-
-    def __eq__(self, other):
-        # Test for equality just by from components.
-        return (self.wrap_type == other.wrap_type and
-                self.value == other.value and
-                self.message == other.message)
 
 
 class WrappedChannelMessage(WrappedMessage):

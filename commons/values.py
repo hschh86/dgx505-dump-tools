@@ -5,8 +5,9 @@ Some Enums.
 """
 
 import enum
+from collections import namedtuple
 
-from .util import assert_low
+from .util import assert_low, ListMapping
 
 _slash_surrogator = str.maketrans("_", "/")
 
@@ -154,26 +155,68 @@ class SwitchBool(enum.Enum):
         return cls(b >= 0x40)
 
 
+class NoteBase(enum.Enum):
+    C = "C"
+    D = "D"
+    E = "E"
+    F = "F"
+    G = "G"
+    A = "A"
+    B = "B"
 
-_sharp_surrogator = str.maketrans("s", "#")
+_asciidental_surrogator = str.maketrans("♯♭", "#b")
+_rev_surrogator = str.maketrans("#b", "♯♭", "♮")
 
-class Notes(enum.Enum):
-    C = 0
-    Db = 1
-    D = 2
-    Eb = 3
-    E = 4
-    F = 5
-    Fs = 6
-    G = 7
-    Gs = 8
-    A = 9
-    Bb = 10
-    B = 11
+class NoteAcc(enum.Enum):
+    FLAT = "♭"
+    SHARP = "♯"
+    NAT = ""  # Technically it would be ♮, but we don't sign it
+
+    @classmethod
+    def from_name(cls, asc):
+        try:
+            return cls(asc)
+        except ValueError as e:
+            if len(asc) != 1:
+                raise e
+            return cls(asc.translate(_rev_surrogator))
+    
+    def ascii(self):
+        return str.translate(self.value, _asciidental_surrogator)
+
+            
+class RootNote(namedtuple("RootNote", "base acc")):
+    __slots__ = ()
+
+    def __new__(cls, base, acc=NoteAcc.NAT):
+        if base not in NoteBase or acc not in NoteAcc:
+            raise ValueError("Invalid note {!r} {!r}".format(base, acc))
+        return super().__new__(cls, base, acc)
 
     def __str__(self):
-        return str.translate(self.name, _sharp_surrogator)
+        return str(self.base.value) + str(self.acc.value)
 
+    def ascii(self):
+        """
+        The version of the note that uses # and b instead of actual sharp and
+        flat signs
+        """
+        return str(self).translate(_asciidental_surrogator)
+    
+    @classmethod
+    def from_name(cls, name):
+        return RootNote(NoteBase(name[0]), NoteAcc.from_name(name[1:]))
+
+
+ROOT_NOTE_SEQ = ListMapping(enumerate(RootNote.from_name(x) for x in 
+    ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "G♯", "A", "B♭", "B"]))
+
+ENHARMONIA = {note: i for i, note in ROOT_NOTE_SEQ.items()}
+for base in NoteBase:
+    i = ENHARMONIA[RootNote(base)]
+    l = len(ROOT_NOTE_SEQ)
+    for acc, j in [(NoteAcc.FLAT, -1), (NoteAcc.SHARP, +1)]:
+        ENHARMONIA[RootNote(base, acc)] = (i+j) % l
 
 
 # Classes For Everyone!
@@ -203,12 +246,10 @@ class NoteValue(WrappedIntValue):
 
     @property
     def note(self):
-        return Notes(int(self) % 12)
+        return ROOT_NOTE_SEQ[int(self) % 12]
 
     def __repr__(self):
         return "NoteValue({!r})".format(int(self))
 
     def __str__(self):
-        return "{:03d}({!s}{:-d})".format(int(self), self.note, self.octave)
-
-
+        return "{:03d}({!s}{:-d})".format(int(self), self.note.ascii(), self.octave)

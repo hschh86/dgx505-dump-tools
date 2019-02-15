@@ -29,15 +29,20 @@ Keeping track of the control messages!
 
 # (For more information consult the DGX505Midi.md document)
 
+import collections.abc
+
+import mido
+
 from ..values import ChorusType, ReverbType, SwitchBool, NoteValue
-from .wrappers import (MessageType, Control, Rpn, SysEx,
-    UnknownControl, UnknownSysEx, UnknownRpn,
+from .wrappers import (
+    MessageType, Control, Rpn, SysEx, SeqSpec, Special,
+    UnknownControl, UnknownSysEx, UnknownRpn, 
     RpnDataCombo, NoteEvent, WrappedMessage, WrappedChannelMessage)
 from . import voices
 
 
 # should I implement the mutable mapping abc?
-class MidiState(object):
+class MidiState(collections.abc.Mapping):
     DICT_SLOTS = frozenset()
 
     def __init__(self):
@@ -59,10 +64,16 @@ class MidiState(object):
         if key in self.DICT_SLOTS:
             self._dict[key] = value
         else:
-            raise KeyError("Unknown Key: {}".format(key))
+            raise KeyError(key)
 
     def __contains__(self, key):
         return key in self.DICT_SLOTS
+
+    def __iter__(self):
+        return iter(self.DICT_SLOTS)
+
+    def __len__(self):
+        return len(self.DICT_SLOTS)
 
 
 class ChannelState(MidiState):
@@ -147,8 +158,14 @@ class ChannelState(MidiState):
         "note_off",
     ))
 
+    # For the User Song channels, we need to keep track of the Octave message,
+    # which is relayed as a polytouch message for some reason.
+    US_MESSAGE_TYPES = frozenset((
+        "polytouch",
+    ))
+
     RECOGNISED_MESSAGE_TYPES = (
-        CONTROL_MESSAGE_TYPES | NOTE_MESSAGE_TYPES
+        CONTROL_MESSAGE_TYPES | NOTE_MESSAGE_TYPES | US_MESSAGE_TYPES
     )
 
     REG_CONTROLLERS = (
@@ -161,19 +178,21 @@ class ChannelState(MidiState):
         {
             Control.DATA_MSB,
             MessageType.PROGRAM_CHANGE,
-            MessageType.PITCHWHEEL
+            MessageType.PITCHWHEEL,
+            Special.OCTAVE,
         }
     )
     # We don't really need to keep track of Portamento Control,
     # for now, because it only affects 1 note really.
 
-    def __init__(self, channel):
+    def __init__(self, channel, user_song=False):
         """
         The channel parameter should be the channel number (0-15).
         """
         super().__init__()
 
         self._channel = channel
+        self.user_song = user_song
 
     def reset_controllers(self):
         # The method that gets called upon Reset Controllers message.
@@ -265,7 +284,12 @@ class ChannelState(MidiState):
             self[MessageType.PITCHWHEEL] = message.pitch
             return WrappedChannelMessage(
                 message, MessageType.PITCHWHEEL, message.pitch)
-
+        # Special handling for US_MESSAGE_TYPES
+        elif message.type in self.US_MESSAGE_TYPES:
+            if self.user_song:
+                return self._handle_us(message)
+            else:
+                return None
         # Shouldn't fall through here
         raise ValueError("Unrecognised message: {}".format(message))
 
@@ -338,6 +362,16 @@ class ChannelState(MidiState):
         # We shouldn't fall through here
         raise ValueError("Unrecognised message: {}".format(message))
 
+    def _handle_us(self, message):
+        # Very Special Special Case
+        if message.type == "polytouch" and message.note == 0x00:
+            # Octave Offset.
+            # It's an offset value from 0x40.
+            return self._set_value(
+                Special.OCTAVE, message.value - 0x40, message)
+        else:
+            return None
+
     def _set_value(self, wrap_type, value, message):
         self[wrap_type] = value
         return WrappedChannelMessage(message, wrap_type, value)
@@ -385,24 +419,38 @@ class MidiControlState(MidiState):
     """
     A class that keeps track of the state of the MIDI controls.
     """
-
-    DICT_SLOTS = frozenset((
+    GENERAL_SETTINGS = frozenset((
         Control.LOCAL,
         SysEx.MASTER_VOL, SysEx.MASTER_TUNE,
         SysEx.REVERB_TYPE, SysEx.CHORUS_TYPE,
     ))
 
-    def __init__(self, wrap_notes=True):
+    SONG_SETTINGS = frozenset((
+        SeqSpec.STYLE, SeqSpec.STYLE_VOL,
+        SeqSpec.SECTION, SeqSpec.CHORD,
+        SysEx.CHORD,
+        MessageType.TEMPO
+    ))
+
+    DICT_SLOTS = GENERAL_SETTINGS | SONG_SETTINGS
+
+    def __init__(self, wrap_notes=True, user_song=False):
         super().__init__()
 
         # There are 16 channels, we'll simply use a list to keep track of them
-        self._channels = [ChannelState(n) for n in range(16)]
+        self._channels = [ChannelState(n, user_song=user_song) for n in range(16)]
 
         # Additionally, we also have the sysex and a few other parameters
         # to keep track of.
 
         # Should we wrap notes?
         self.wrap_notes = wrap_notes
+        # Keep track of the user_song flag
+        self.user_song = user_song
+
+        # Unknown: How exactly does the meta-message handling work?
+        # Does it need to be on track 0?
+        # How about mixing sysex and meta chord changes?
 
     def reset_gm(self):
         self.update((
@@ -443,6 +491,17 @@ class MidiControlState(MidiState):
             return self._channels[message.channel].feed(message)
         elif message.type == "sysex":
             return self._handle_sysex(message)
+        # User Song Polytouch Special Handling
+        elif self.user_song and message.type in ChannelState.US_MESSAGE_TYPES:
+            return self._channels[message.channel].feed(message)
+        # Meta Messages.
+        elif message.type == "set_tempo":
+            # We use the bpm instead of the midi-tempo as value.
+            return WrappedMessage(
+                message, MessageType.TEMPO, mido.tempo2bpm(message.tempo))
+        # Sequencer Specific Meta Message handling
+        elif message.type == "sequencer_specific":
+            return self._handle_seqspec(message)
         return None
 
     def _handle_sysex(self, message):
@@ -462,48 +521,17 @@ class MidiControlState(MidiState):
             sysex_type = SysEx.MASTER_VOL
             value = data[5]
 
-        elif (data[0] == 0x43 and data[1] >> 4 == 1):
-            # Yamaha Exclusive Messages F0 43 1x .. F7
-            if (len(data) < 9 and data[2] == 0x4C):
-                # XG Parameter Change
-                # F0 43 1x 4C .. F7
-                a, b = data[3:5], data[5:]
-                if len(b) == 3 and a == (0x02, 0x01):
-                    # Chorus/Reverb
-                    # F0 43 1x 4C 02 01 tt mm ll F7
-                    tt, mm, ll = b
-                    if tt == 0x00:
-                        # Reverb type.
-                        sysex_type = SysEx.REVERB_TYPE
-                        value = ReverbType.from_b(mm, ll)
+        elif data[0] == 0x43:
+            # Yamaha Exclusive Messages F0 43 .. F7
+            if data[1] >> 4 == 1:
+                # Yamaha Exclusive controls F0 43 1x .. F7
+                sysex_type, value = self._yamaha_controls(data)
+            elif (len(data) == 7 and
+                  data[1:3] == (0x7E, 0x02)):
+                # SysEx Chord Change
+                # F0 43 7E 02 rr tt rr tt F7
+                sysex_type = SysEx.CHORD
 
-                    elif tt == 0x20:
-                        # Chorus Type
-                        sysex_type = SysEx.CHORUS_TYPE
-                        value = ChorusType.from_b(mm, ll)
-
-                elif len(b) == 2 and a == (0x00, 0x00):
-                    if b == (0x7E, 0x00):
-                        # XG System On
-                        # F0 43 1x 4C 00 00 7E 00 F7
-                        sysex_type = SysEx.XG_ON
-                        self.reset_gm()
-
-                    elif b == (0x7F, 0x00):
-                        # XG All Parameter Reset
-                        # F0 43 1x 4C 00 00 7F 00 F7
-                        sysex_type = SysEx.XG_RESET
-                        self.reset_param()
-
-            elif (len(data) == 9 and
-                data[2:6] == (0x27, 0x30, 0x00, 0x00)):
-                # MIDI Master Tuning
-                # F0 43 1x 27 30 00 00 xm xl xx F7
-                sysex_type = SysEx.MASTER_TUNE
-                mm, ll = data[6:8]
-                ml = ((mm & 0xF) << 4) | (ll & 0xF)
-                # clamp to [-100, +100]
-                value = max(-100, min(ml - 0x80, +100))
 
         if sysex_type is None:
             sysex_type = UnknownSysEx(message.data)
@@ -513,6 +541,76 @@ class MidiControlState(MidiState):
 
         return WrappedMessage(
             message, sysex_type, value)
+
+    def _yamaha_controls(self, data):
+        """
+        This method is for handling a message
+        F7 43 1x .. F7.
+        Precondition:
+        data[0] == 0x43, data[1] >> 4 == 1.
+        Returns (sysex_type, value) for wrapping
+        messages.
+        May also mutate the internal state.
+        """
+        sysex_type = None
+        value = None
+        if (len(data) < 9 and data[2] == 0x4C):
+            # XG Parameter Change
+            # F0 43 1x 4C .. F7
+            a, b = data[3:5], data[5:]
+            if len(b) == 3 and a == (0x02, 0x01):
+                # Chorus/Reverb
+                # F0 43 1x 4C 02 01 tt mm ll F7
+                tt, mm, ll = b
+                if tt == 0x00:
+                    # Reverb type.
+                    sysex_type = SysEx.REVERB_TYPE
+                    value = ReverbType.from_b(mm, ll)
+
+                elif tt == 0x20:
+                    # Chorus Type
+                    sysex_type = SysEx.CHORUS_TYPE
+                    value = ChorusType.from_b(mm, ll)
+
+            elif len(b) == 2 and a == (0x00, 0x00):
+                if b == (0x7E, 0x00):
+                    # XG System On
+                    # F0 43 1x 4C 00 00 7E 00 F7
+                    sysex_type = SysEx.XG_ON
+                    self.reset_gm()
+
+                elif b == (0x7F, 0x00):
+                    # XG All Parameter Reset
+                    # F0 43 1x 4C 00 00 7F 00 F7
+                    sysex_type = SysEx.XG_RESET
+                    self.reset_param()
+
+        elif (len(data) == 9 and
+            data[2:6] == (0x27, 0x30, 0x00, 0x00)):
+            # MIDI Master Tuning
+            # F0 43 1x 27 30 00 00 xm xl xx F7
+            sysex_type = SysEx.MASTER_TUNE
+            mm, ll = data[6:8]
+            ml = ((mm & 0xF) << 4) | (ll & 0xF)
+            # clamp to [-100, +100]
+            value = max(-100, min(ml - 0x80, +100))
+
+        return sysex_type, value
+
+    def _handle_seqspec(self, message):
+        """
+        Handling for supported sequencer-specific
+        meta-events.
+        """
+        # Yamaha Meta Events
+        seqspec_type = None
+        value = None
+
+
+
+
+
+
 
 
     # def _iter_values(self):
