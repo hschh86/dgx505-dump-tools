@@ -45,20 +45,16 @@ class _VoiceLookup(object):
         _names_nonxg = {}
         _names_xg = {}
         # read in data from csv file
-        _creader = table_util.read_csv_table('tables/voices.csv')
-        next(_creader)  # Throw away the header
-        for number_s, name, category, msb_s, lsb_s, prog_s in _creader:
-            # convert strings to ints
-            number, msb, lsb, prog = map(int, (number_s, msb_s, lsb_s, prog_s))
-            # construct Voice tuple
-            voice = Voice(number, name, category, msb, lsb, prog)
+        for voice in table_util.read_csv_table_namedtuple(
+            'tables/voices.csv', Voice, (int, str, str, int, int, int)
+        ):
             # assign to dictionaries
-            _numbers[number] = voice
-            _bank_programs[(msb, lsb, prog)] = voice
-            if category.startswith("XG"):
-                _names_xg[name] = voice
+            _numbers[voice.number] = voice
+            _bank_programs[(voice.msb, voice.lsb, voice.prog)] = voice
+            if voice.category.startswith("XG"):
+                _names_xg[voice.name] = voice
             else:
-                _names_nonxg[name] = voice
+                _names_nonxg[voice.name] = voice
 
         # check we have everything
         assert (len(_numbers)

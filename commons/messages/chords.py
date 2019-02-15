@@ -5,6 +5,7 @@ Classes and utilities for handling and representing the chord change information
 """
 
 import collections
+from functools import partial
 
 from . import table_util
 from .. import util
@@ -15,23 +16,13 @@ class _ChordLookup(object):
 
     @util.lazy_property
     def codes(self):
-        cmap = util.ListMapping()
-        creader = table_util.read_csv_table('tables/chords.csv')
+        return table_util.read_csv_table_namedtuple_listmapping(
+            'tables/chords.csv', ChordType, [partial(int, base=16), str, str, str, str])
 
-        # header check
-        headers = next(creader)
-        assert headers == list(ChordType._fields)
-
-        for code_hex, *rest in creader:
-            # Convert the hex string to a number
-            code = int(code_hex, 16)
-            cmap[code] = ChordType(code, *rest)
-        return cmap
-    
     @util.lazy_property
     def names(self):
         return {c.name: c for c in self.codes.values()}
-    
+
     @util.lazy_property
     def abbrs(self):
         return {c.abbr: c for c in self.codes.values()}
