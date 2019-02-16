@@ -98,6 +98,9 @@ class SeqSpec(_StringValueEnum):
     STYLE_VOL = "Style Volume"
     SECTION = "Section Change"
     CHORD = "Meta Chord Change"
+    # XF Meta-Messages
+    XF_VERSION = "XF Version ID"
+    GUIDE_TRACK = "Guide Track Flag"
 
 
 class Special(_StringValueEnum):

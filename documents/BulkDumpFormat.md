@@ -325,10 +325,16 @@ The volume takes values from 0 to 127.
 
 ##### Chord
 
-`43 76 1A 03 rr tt rr tt`
+`43 76 1A 03 cr ct bn bt`
 
-The Chord change meta-events have the chord specified by `rr tt rr tt`, where the root note of the chord is `rr` and the type is `tt`. (See Chord Bytes below for details.)
+The Chord change meta-events have the chord specified by `cr ct bn bt`, where:
 
+* `cr` = Chord root
+* `ct` = Chord type
+* `bn` = On-bass note
+* `bt` = Bass type
+
+(This terminology comes from the Yamaha XF Format specification. I'm not sure if it applies exactly, but it's better than nothing.)
 
 ###### Root Notes
 
@@ -437,6 +443,8 @@ For example, a "B-`22` chord" can be obtained with C+D♭+B (i.e. B+C+D♭, but 
 It can also be obtained with a bass note, in which case no transposition is necessary. For example a "D♭-`22`/C chord" can be obtained with C+D♭+D+E♭, and a "C-`22`/G chord" with G+C+D♭+D.
 This causes the accompaniment to play with the bass note only. In either case, the chord display becomes blank.
 
+(The XF specification calls this no-chord "cc".)
+
 Chords `26` through `2A` are displayed in the chord display with an asterisk, like "C*". Although they display the same, they are different chords with different accompaniments.
 The key combinations are listed above; for example a C*1+♭2+5* chord is obtained with the keys C+D♭+G.
 
@@ -445,9 +453,9 @@ The key combinations are listed above; for example a C*1+♭2+5* chord is obtain
 
 ###### Chord Bytes
 
-For most chords, the first and second occurences of `rr` and `tt` are the same (i.e. the same two are repeated). For example, an E major chord is `33 00 33 00`, an A minor (Am) chord is `36 08 36 08`, and a G sharp minor major seventh flatted fifth (G♯mM7♭5) chord is `45 25 45 25`.
+For most chords, `cr ct` and `bn bt` are the same. For example, an E major chord is `33 00 33 00`, an A minor (Am) chord is `36 08 36 08`, and a G sharp minor major seventh flatted fifth (G♯mM7♭5) chord is `45 25 45 25`.
 
-The DGX-505 also supports chords with different bass notes (I'm not sure of the terminology), which appear after a slash, e.g. "C/G" or "Am/D♭". For these chords, the second `rr tt` takes the value of the bass note's octave-chord (i.e. `bb 1E`). For example, C major with F bass is `31 00 34 1E`.
+The DGX-505 also supports chords with different bass notes, which appear after a slash, e.g. "C/G" or "Am/D♭". For these chords, `bn bt` takes the value of the bass note's octave-chord (i.e. `bn 1E`). For example, C major with F bass is `31 00 34 1E`.
 
 This also applies to the special chord types `22` and `26`–`2A`.
 
@@ -456,7 +464,11 @@ This also applies to the special chord types `22` and `26`–`2A`.
 
 The MIDI files on the supplied CD-ROM have a different method of specifying chord changes, using System Exclusive messages instead of meta-events.
 
-The System Exclusive messages have the format `F7 43 7E 02 rr tt rr tt 7F`, where `rr tt rr tt` is of the same format described previously.
+The System Exclusive messages have the format `F7 43 7E 02 cr ct bn bt 7F`, where `cr ct bn bt` is of the same format described previously.
+
+(Both of these schemes are different
+defined in Yamaha's XF Format specifications from 1999.
+There, chord changes are through meta-events with data `43 7B 01 cr ct bn bt`.)
 
 
 ##### Style Number

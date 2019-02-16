@@ -614,7 +614,8 @@ Reverb levels; in the full Yamaha XG it is the Variation effect.
 In general, Polyphonic Aftertouch messages are of the form `An kk vv`, meant for communicating the pressure of the key after it is pressed. The DGX-505 does not support this functionality.
 
 However, a message of the form `An 00 vv` can be found
-in the User Song tracks. This  indicates the octave offset for the channel, with `40` being ±0.
+in the User Song tracks.
+This indicates the octave offset for the channel, with `40` being ±0.
 (See the [Bulk Dump Format document](./BulkDumpFormat.md) for more details.)
 
 
@@ -717,3 +718,75 @@ Finally, if Keyboard Out is ON, we have settings for the Main, Dual and Split vo
 * Release Time
 
 Interestingly, the RPN for these channels doesn't get set to null.
+
+
+## Messages in the supplied CD MIDI files
+
+The MIDI files on the supplied CD have some interesting things on them.
+
+They have the Yamaha XF format, which is an extension of the SMF (Standard MIDI File) format.
+
+Among the messages present in the files:
+
+### System Exclusive
+
+#### Chord Change
+
+`7F 43 7E 02 cr ct bn bt F7`
+
+The last four bytes seem to be of the same kind as the Chord Change meta-event specified in the [Bulk Dump Format document](./BulkDumpFormat.md).
+
+Note that according to the XF specs (v.2.01 from 1999), chord changes are supposed to have an alternate encoding as sequencer-specific meta-events.
+
+#### Unknown
+
+`7F 43 73 01 50 12 00 xx xx`
+
+I don't know what this is for.
+
+#### Something Else?
+
+The XF specs have a brief mention of an older format with Section Change (?) messages of format `7F 43 7E 00 ss dd`. This is not present in the files, but seems to be related to the chord change format somehow.
+
+### Sequencer-Specific Meta-Events
+
+(Represented here as just the data component of the meta-events)
+
+#### XF Version ID
+
+`43 7B 00 58 46 30 32 00 1B`
+
+According to the XF spec, this is tells a sequencer that it is an XF file.
+
+Note that `58 46 30 32` is ASCII for `XF02`, indicating XF version 2.
+Apparently there's also `XF01`, for XF version 1 with less features.
+
+The `00 1B` on the end are flags. In XF version 2 these are `00000000 000kl0si`,
+with `0` = false and `1` = true for the presence of:
+
+* `k`: Karaoke messages / chunk
+* `l`: Lyric meta-events
+* `s`: Style messages
+* `i`: Information header / chunk
+
+(As defined by the XF format).
+
+All the supplied MIDI files have `1B`, which is `00011011`: they have all of these features.
+
+The information chunk is the `XFIH` chunk, and the karaoke chunk is `XFMK` chunk.
+
+#### Guide Track Flag
+
+`43 7B 0C 01 02`
+
+This message signals that the right hand track is Channel 1 and the left hand track is Channel 2.
+
+In general, this message has the format `43 7B 0C rr ll`, where `rr` is the right hand and `ll` is the left. Note that these values are not the internal channel values but the human readable numbers, so:
+
+* `00` = off
+* `01` = Channel 1 (`0`)
+* `02` = Channel 2 (`1`)
+...
+* `10` = Channel 16 (`F`)
+
+
