@@ -42,102 +42,109 @@ class HarmonyType(enum.Enum):
     def __str__(self):
         namestring = str.translate(self.name, _slash_surrogator).title()
         return "{:02d}({})".format(self.value, namestring)
-    
-    @classmethod
-    def from_number(cls, number):
-        try:
-            return cls(number)
-        except ValueError:
-            raise KeyError(number)
-    
-    @property
-    def number(self):
-        return self.value
 
     def d_value(self):
         return self.value
 
-# Slightly Less Ugly But Still Pretty Ugly, Honestly
-
-def RCdictify(cls):
-    cls._number_dict = {x.number: x for x in cls}
-    cls._code_dict = {x.code: x for x in cls}
-    cls._top = cls.OFF.number
-    cls._n_digits = len(str(cls._top))
-    return cls
 
 class RCTypeEnum(enum.Enum):
-    def __init__(self, number, code):
-        self.number = number
-        self.code = code
-    
-    # @lazy_class_property
-    # def num_dict(cls):
-    #     return {x.number: x for x in cls}
-    
-    # @lazy_class_property
-    # def code_dict(cls):
-    #     return {x.code: x for x in cls}
-
-   
-    @classmethod
-    def from_code(cls, msb, lsb):
-        try:
-            val = cls._code_dict[msb, lsb]
-        except KeyError:
-            try:
-                val = cls._code_dict[msb, 0x00]
-            except KeyError:
-                val = cls._code_dict[0x00, 0x00]
-        return val
-
-    @classmethod
-    def from_number(cls, number):
-        return cls._number_dict[number]
 
     def d_value(self):
-        if self.number > self._top:
+        if self.value > type(self).OFF.value:
             return None
-        return self.number
+        return self.value
     
     def _numstring(self):
-        if self.d_value() is None:
+        off = type(self).OFF.value
+        if self.value > off:
             return "---"
         else:
-            return "{0:0{1}d}".format(self.number, self._n_digits)
+            return "{0:0{1}d}".format(self.value, len(str(off)))
     
     def __str__(self):
         return "{}({})".format(self._numstring(), str.title(self.name))
 
 
-@RCdictify
 class ReverbType(RCTypeEnum):
-    HALL1  = (1,  (0x01, 0x00))
-    HALL2  = (2,  (0x01, 0x10))
-    HALL3  = (3,  (0x01, 0x11))
-    ROOM1  = (4,  (0x02, 0x11))
-    ROOM2  = (5,  (0x02, 0x13))
-    STAGE1 = (6,  (0x03, 0x10))
-    STAGE2 = (7,  (0x03, 0x11))
-    PLATE1 = (8,  (0x04, 0x10))
-    PLATE2 = (9,  (0x04, 0x11))
-    OFF    = (10, (0x00, 0x00))
-    ROOM   = (11, (0x02, 0x00))
-    STAGE  = (12, (0x03, 0x00))
-    PLATE  = (13, (0x04, 0x00))
+    HALL1 = 1
+    HALL2 = 2
+    HALL3 = 3
+    ROOM1 = 4
+    ROOM2 = 5
+    STAGE1 = 6
+    STAGE2 = 7
+    PLATE1 = 8
+    PLATE2 = 9
+    OFF = 10
+    ROOM = 11
+    STAGE = 12
+    PLATE = 13
 
-@RCdictify
+
 class ChorusType(RCTypeEnum):
-    CHORUS1  = (1, (0x42, 0x11))
-    CHORUS2  = (2, (0x41, 0x02))
-    FLANGER1 = (3, (0x43, 0x08))
-    FLANGER2 = (4, (0x43, 0x11))
-    OFF      = (5, (0x00, 0x00))
-    THRU     = (6, (0x40, 0x00))
-    CHORUS   = (7, (0x41, 0x00))
-    CELESTE  = (8, (0x42, 0x00))
-    FLANGER  = (9, (0x43, 0x00))
+    CHORUS1 = 1
+    CHORUS2 = 2
+    FLANGER1 = 3
+    FLANGER2 = 4
+    OFF = 5
+    THRU = 6
+    CHORUS = 7
+    CELESTE = 8
+    FLANGER = 9
 
+# Instead of doing weird tricks to the class instances
+# themselves, how about a wrapper class?
+
+class RCTypeCodeLookup(object):
+    # It's a perfectly ordinary class.
+    def __init__(self, codes):
+        self._to_codes = {}
+        self._from_codes = {}
+        for t, msb, lsb in codes:
+            self._to_codes[t] = msb, lsb
+            self._from_codes[msb, lsb] = t
+
+    def from_code(self, msb, lsb):
+        try:
+            val = self._from_codes[msb, lsb]
+        except KeyError:
+            try:
+                val = self._from_codes[msb, 0x00]
+            except KeyError:
+                val = self._from_codes[0x00, 0x00]
+        return val
+    
+    def __getitem__(self, key):
+        return self._to_codes[key]
+
+
+ReverbCodes = RCTypeCodeLookup([
+    (ReverbType.OFF,     0x00, 0x00),
+    (ReverbType.HALL1,   0x01, 0x00),
+    (ReverbType.HALL2,   0x01, 0x10),
+    (ReverbType.HALL3,   0x01, 0x11),
+    (ReverbType.ROOM,    0x02, 0x00),
+    (ReverbType.ROOM1,   0x02, 0x11),
+    (ReverbType.ROOM2,   0x02, 0x13),
+    (ReverbType.STAGE ,  0x03, 0x00),
+    (ReverbType.STAGE1,  0x03, 0x10),
+    (ReverbType.STAGE2,  0x03, 0x11),
+    (ReverbType.PLATE,   0x04, 0x00),
+    (ReverbType.PLATE1,  0x04, 0x10),
+    (ReverbType.PLATE2,  0x04, 0x11),
+])
+
+ChorusCodes = RCTypeCodeLookup([
+    (ChorusType.OFF,      0x00, 0x00),
+    (ChorusType.THRU,     0x40, 0x00),
+    (ChorusType.CHORUS,   0x41, 0x00),
+    (ChorusType.CHORUS2,  0x41, 0x02),
+    (ChorusType.CELESTE,  0x42, 0x00),
+    (ChorusType.CHORUS1,  0x42, 0x11),
+    (ChorusType.FLANGER,  0x43, 0x00),
+    (ChorusType.FLANGER1, 0x43, 0x08),
+    (ChorusType.FLANGER2, 0x43, 0x11),    
+])
 
 
 class SwitchBool(enum.Enum):

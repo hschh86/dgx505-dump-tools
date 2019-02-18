@@ -95,21 +95,20 @@ class RangeMap(collections.abc.Mapping):
 class EffectTypeMap(collections.abc.Mapping):
     """
     Map for the effect type enums (Harmony, Chorus, Reverb)
-    defined in commons.enums
     """
     def __init__(self, effect_enum_class):
         self.effect_enum_class = effect_enum_class
     
     def __getitem__(self, key):
         try:
-            effect = self.effect_enum_class.from_number(key)
-        except KeyError:
+            effect = self.effect_enum_class(key)
+        except ValueError:
             raise KeyError("No such effect {}".format(key))
         return effect.d_value(), str(effect)
     
     def __iter__(self):
         for effect in self.effect_enum_class:
-            yield effect.number
+            yield effect.value
 
     def __len__(self):
         return len(self.effect_enum_class)
