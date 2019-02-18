@@ -7,31 +7,11 @@ Some Enums.
 import enum
 from collections import namedtuple
 
-from .util import assert_low, ListMapping
+from .util import assert_low, ListMapping #, lazy_class_property
 
 _slash_surrogator = str.maketrans("_", "/")
 
-class EffectTypeEnum(enum.Enum):
-    def __str__(self):
-        top = self.top()
-        if self.value > top:
-            numstring = "---"
-        else:
-            numstring = "{0:0{1}d}".format(self.value, len(str(top)))
-        namestring = str.translate(self.name, _slash_surrogator).title()
-        return "{}({})".format(numstring, namestring)
-
-    @classmethod
-    def top(cls):
-        return len(cls.__members__)
-
-    def d_value(self):
-        if self.value > self.top():
-            return None
-        return self.value
-
-
-class HarmonyType(EffectTypeEnum):
+class HarmonyType(enum.Enum):
     DUET = 1
     TRIO = 2
     BLOCK = 3
@@ -59,87 +39,105 @@ class HarmonyType(EffectTypeEnum):
     ECHO1_24 = 25
     ECHO1_32 = 26
 
-# This is a really ugly way to do it, but it works.
-
-def _assign_lookup_dicts(cls, table):
-    cls.b_dict = {t: b for t, b in table}
-    cls.t_dict = {b: t for t, b in table}
-
-class ReverbChorusTypeEnum(EffectTypeEnum):
+    def __str__(self):
+        namestring = str.translate(self.name, _slash_surrogator).title()
+        return "{:02d}({})".format(self.value, namestring)
+    
     @classmethod
-    def top(cls):
-        return cls.OFF.value
-
-    def to_b(self):
-        return self.b_dict[self]
-
-    @classmethod
-    def from_b(cls, msb, lsb):
+    def from_number(cls, number):
         try:
-            val = cls.t_dict[msb, lsb]
+            return cls(number)
+        except ValueError:
+            raise KeyError(number)
+    
+    @property
+    def number(self):
+        return self.value
+
+    def d_value(self):
+        return self.value
+
+# Slightly Less Ugly But Still Pretty Ugly, Honestly
+
+def RCdictify(cls):
+    cls._number_dict = {x.number: x for x in cls}
+    cls._code_dict = {x.code: x for x in cls}
+    cls._top = cls.OFF.number
+    cls._n_digits = len(str(cls._top))
+    return cls
+
+class RCTypeEnum(enum.Enum):
+    def __init__(self, number, code):
+        self.number = number
+        self.code = code
+    
+    # @lazy_class_property
+    # def num_dict(cls):
+    #     return {x.number: x for x in cls}
+    
+    # @lazy_class_property
+    # def code_dict(cls):
+    #     return {x.code: x for x in cls}
+
+   
+    @classmethod
+    def from_code(cls, msb, lsb):
+        try:
+            val = cls._code_dict[msb, lsb]
         except KeyError:
             try:
-                val = cls.t_dict[msb, 0x00]
+                val = cls._code_dict[msb, 0x00]
             except KeyError:
-                val = cls.t_dict[0x00, 0x00]
+                val = cls._code_dict[0x00, 0x00]
         return val
 
+    @classmethod
+    def from_number(cls, number):
+        return cls._number_dict[number]
 
-class ReverbType(ReverbChorusTypeEnum):
-    HALL1 = 1
-    HALL2 = 2
-    HALL3 = 3
-    ROOM1 = 4
-    ROOM2 = 5
-    STAGE1 = 6
-    STAGE2 = 7
-    PLATE1 = 8
-    PLATE2 = 9
-    OFF = 10
-    ROOM = 11
-    STAGE = 12
-    PLATE = 13
-
-_assign_lookup_dicts(ReverbType, (
-    (ReverbType.OFF,    (0x00, 0x00)),
-    (ReverbType.HALL1,  (0x01, 0x00)),
-    (ReverbType.HALL2,  (0x01, 0x10)),
-    (ReverbType.HALL3,  (0x01, 0x11)),
-    (ReverbType.ROOM,   (0x02, 0x00)),
-    (ReverbType.ROOM1,  (0x02, 0x11)),
-    (ReverbType.ROOM2,  (0x02, 0x13)),
-    (ReverbType.STAGE,  (0x03, 0x00)),
-    (ReverbType.STAGE1, (0x03, 0x10)),
-    (ReverbType.STAGE2, (0x03, 0x11)),
-    (ReverbType.PLATE,  (0x04, 0x00)),
-    (ReverbType.PLATE1, (0x04, 0x10)),
-    (ReverbType.PLATE2, (0x04, 0x11)),
-))
+    def d_value(self):
+        if self.number > self._top:
+            return None
+        return self.number
+    
+    def _numstring(self):
+        if self.d_value() is None:
+            return "---"
+        else:
+            return "{0:0{1}d}".format(self.number, self._n_digits)
+    
+    def __str__(self):
+        return "{}({})".format(self._numstring(), str.title(self.name))
 
 
+@RCdictify
+class ReverbType(RCTypeEnum):
+    HALL1  = (1,  (0x01, 0x00))
+    HALL2  = (2,  (0x01, 0x10))
+    HALL3  = (3,  (0x01, 0x11))
+    ROOM1  = (4,  (0x02, 0x11))
+    ROOM2  = (5,  (0x02, 0x13))
+    STAGE1 = (6,  (0x03, 0x10))
+    STAGE2 = (7,  (0x03, 0x11))
+    PLATE1 = (8,  (0x04, 0x10))
+    PLATE2 = (9,  (0x04, 0x11))
+    OFF    = (10, (0x00, 0x00))
+    ROOM   = (11, (0x02, 0x00))
+    STAGE  = (12, (0x03, 0x00))
+    PLATE  = (13, (0x04, 0x00))
 
-class ChorusType(ReverbChorusTypeEnum):
-    CHORUS1 = 1
-    CHORUS2 = 2
-    FLANGER1 = 3
-    FLANGER2 = 4
-    OFF = 5
-    THRU = 6
-    CHORUS = 7
-    CELESTE = 8
-    FLANGER = 9
+@RCdictify
+class ChorusType(RCTypeEnum):
+    CHORUS1  = (1, (0x42, 0x11))
+    CHORUS2  = (2, (0x41, 0x02))
+    FLANGER1 = (3, (0x43, 0x08))
+    FLANGER2 = (4, (0x43, 0x11))
+    OFF      = (5, (0x00, 0x00))
+    THRU     = (6, (0x40, 0x00))
+    CHORUS   = (7, (0x41, 0x00))
+    CELESTE  = (8, (0x42, 0x00))
+    FLANGER  = (9, (0x43, 0x00))
 
-_assign_lookup_dicts(ChorusType, (
-    (ChorusType.OFF, (0x00, 0x00)),
-    (ChorusType.THRU, (0x40, 0x00)),
-    (ChorusType.CHORUS, (0x41, 0x00)),
-    (ChorusType.CHORUS2, (0x41, 0x02)),
-    (ChorusType.CELESTE, (0x42, 0x00)),
-    (ChorusType.CHORUS1, (0x42, 0x11)),
-    (ChorusType.FLANGER, (0x43, 0x00)),
-    (ChorusType.FLANGER1, (0x43, 0x08)),
-    (ChorusType.FLANGER2, (0x43, 0x11)),
-))
 
 
 class SwitchBool(enum.Enum):
@@ -197,11 +195,11 @@ class NoteAcc(enum.Enum):
             if len(asc) != 1:
                 raise e
             return cls(asc.translate(_rev_surrogator))
-    
+
     def ascii(self):
         return str.translate(self.value, _asciidental_surrogator)
 
-            
+
 class RootNote(namedtuple("RootNote", "base acc")):
     __slots__ = ()
 
@@ -219,13 +217,13 @@ class RootNote(namedtuple("RootNote", "base acc")):
         flat signs
         """
         return str(self).translate(_asciidental_surrogator)
-    
+
     @classmethod
     def from_name(cls, name):
         return RootNote(NoteBase(name[0]), NoteAcc.from_name(name[1:]))
 
 
-ROOT_NOTE_SEQ = ListMapping(enumerate(RootNote.from_name(x) for x in 
+ROOT_NOTE_SEQ = ListMapping(enumerate(RootNote.from_name(x) for x in
     ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "G♯", "A", "B♭", "B"]))
 
 _ENHARMONIA = {note: i for i, note in ROOT_NOTE_SEQ.items()}

@@ -102,14 +102,14 @@ class EffectTypeMap(collections.abc.Mapping):
     
     def __getitem__(self, key):
         try:
-            effect = self.effect_enum_class(key)
-        except ValueError:
+            effect = self.effect_enum_class.from_number(key)
+        except KeyError:
             raise KeyError("No such effect {}".format(key))
         return effect.d_value(), str(effect)
     
     def __iter__(self):
         for effect in self.effect_enum_class:
-            yield effect.value
+            yield effect.number
 
     def __len__(self):
         return len(self.effect_enum_class)

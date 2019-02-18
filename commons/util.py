@@ -6,6 +6,7 @@ Utilities and helper functions that don't require mido
 """
 import sys
 import itertools
+import functools
 import collections
 import collections.abc
 
@@ -14,13 +15,16 @@ YAMAHA = 0x43
 
 
 # Formatting
+onehex = functools.partial(format, format_spec="1X")
+twohex = functools.partial(format, format_spec="02X")
+
 def hexspace(seq):
     """
     Returns a string representation as two digit
     hexadecimal numbers separated by spaces for a sequence
     of byte-sized numbers.
     """
-    return " ".join(format(b, "02X") for b in seq)
+    return " ".join(twohex(b) for b in seq)
 
 
 # slicing and iteration
@@ -211,6 +215,16 @@ class lazy_property(object):
         # Pyramid's reify uses setattr, cached_property uses __dict__...
         setattr(obj, self.name, val)
         return val
+
+
+# class lazy_class_property(lazy_property):
+#     """
+#     A version of lazy_property that acts on the whole class,
+#     like a class method.
+#     """
+#     # This seems dangerous
+#     def __get__(self, obj, objtype=None):
+#         return super().__get__(objtype)
 
 
 def iter_pairs(itr):

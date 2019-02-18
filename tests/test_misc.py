@@ -3,7 +3,7 @@ import pytest
 from commons.util import (pack_seven, pack_variable_length,
                           unpack_variable_length, unpack_seven,
                           reconstitute, reconstitute_all,
-                          lazy_property,
+                          lazy_property, # lazy_class_property,
                           cumulative_slices,
                           iter_pairs,
                           CachedSequence
@@ -86,6 +86,8 @@ class SomeObject(object):
 def test_lazy_property():
 
     class MyClass(object):
+        cls_counter = 0
+
         def __init__(self):
             self.counter = 0
 
@@ -100,6 +102,12 @@ def test_lazy_property():
             self.counter += 1
             return SomeObject()
 
+        # @lazy_class_property
+        # def lazy_class_prop(cls):
+        #     """some class string"""
+        #     cls.cls_counter += 1
+        #     return SomeObject()
+
     inst1 = MyClass()
     assert inst1.counter == 0
     assert inst1.unlazy_prop is not inst1.unlazy_prop
@@ -109,6 +117,27 @@ def test_lazy_property():
     inst2 = MyClass()
     assert inst1.lazy_prop is not inst2.lazy_prop
     assert MyClass.lazy_prop.__doc__ == "somestring"
+    # assert inst1.cls_counter == 0
+    # assert MyClass.lazy_class_prop is inst1.lazy_class_prop
+    # assert inst1.lazy_class_prop is inst2.lazy_class_prop
+    # assert inst1.cls_counter == 1
+    # assert MyClass.lazy_class_prop is inst1.lazy_class_prop
+
+    # class MyOtherClass(object):
+    #     cls_counter = 0
+    #     @lazy_class_property
+    #     def lazy_class_prop(cls):
+    #         """some class string"""
+    #         cls.cls_counter += 1
+    #         return SomeObject()
+
+    # inst3 = MyOtherClass()
+    # assert MyOtherClass.cls_counter == 0
+    # assert inst3.lazy_class_prop is inst3.lazy_class_prop
+    # assert inst3.cls_counter == 1
+    # assert inst3.lazy_class_prop is MyOtherClass.lazy_class_prop
+
+
 
 
 def test_cumulative_slices():
