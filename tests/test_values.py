@@ -1,7 +1,9 @@
 import pytest
 
 from commons import values, maps
-from commons.messages import controls, controlstate, wrappers, voices, chords, styles
+from commons.messages import (
+    controls, controlstate, wrappers, voices, chords, styles,
+    exclusives)
 
 
 def test_notes():
@@ -48,12 +50,34 @@ def test_chords():
         assert chords.CHORDS.codes[n].code == n
 
 def test_styles():
-    for n in [1, 2, 8, 22, 135]:
+    for n in [1, 2, 8, 22, 135, 136]:
         style = styles.from_number(n)
         assert style.number == n
         assert styles.from_name(style.name) == style
 
-    for n in [0, 136]:
+    for n in [0, 137]:
         with pytest.raises(KeyError):
             styles.from_number(n)
-            
+
+def test_exclusives():
+    for m, t in [
+        (controls.gm_on(), dict(
+            type=wrappers.SysEx.GM_ON)),
+        (controls.master_tune(0x7F, 0x06), dict(
+            type=wrappers.SysEx.MASTER_TUNE, mm=0x7F, ll=0x06, cc=0x00, n=0)),
+        (controls.master_vol(0x22), dict(
+            type=wrappers.SysEx.MASTER_VOL, ll=0, mm=0x22
+        )),
+        (controls.xg_on(), dict(
+            type=wrappers.SysEx.XG_ON, n=0
+        ))
+    ]:
+        assert exclusives.match_sysex(m) == t
+
+
+def test_cs():
+    s = controlstate.MidiControlState()
+    m = controls.gm_on()
+    w = s.feed(m)
+    assert w.wrap_type is wrappers.SysEx.GM_ON
+    assert w.value is None
