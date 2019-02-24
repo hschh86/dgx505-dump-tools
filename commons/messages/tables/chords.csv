@@ -33,7 +33,7 @@ code,name,abbr,abbr_format,disp_format
 1F,perfect fifth,1+5,{}1+5,{}1+5
 20,suspended fourth,sus4,{}sus4,{}sus4
 21,suspended second,sus2,{}sus2,{}sus2
-22,(no chord),(no chord),[{} (no chord)],
+22,(no chord),cc,[{}cc],
 23,major seventh flatted fifth,M7♭5,{}M7♭5,{}m7^♭5
 24,flatted fifth,(♭5),{}(♭5),{}^♭5
 25,minor major seventh flatted fifth,mM7♭5,{}mM7♭5,{}mM7^♭5
