@@ -52,6 +52,7 @@ exclusives.py
 
 import re
 import collections
+import functools
 
 from .wrappers import MessageType, SysEx, SeqSpec
 from .. import util
@@ -60,20 +61,19 @@ class DataMatcher(object):
     def __init__(self):
         self._matchers = collections.OrderedDict()
 
-    def register(self, pattern):
+    def register(self, pattern, action=None):
         """
         Register a pattern
         """
         # Decorators, probably not the best choice (TM)
-        regex = re.compile(pattern, flags=re.S)
-
-        def r_decorator(action):
-            # We need to decorate... but we don't actually
-            # need to return an actual decorated function do we?
+        if action is None:
+            # Use this as a decorator instead
+            return functools.partial(self.register, pattern)
+        else:
+            regex = re.compile(pattern, flags=re.S)
             self._matchers[regex] = action
-            return action  # maybe unncessary?
-        
-        return r_decorator
+
+            return action  # probably unnecessary?
 
     def match(self, data):
         """
@@ -82,17 +82,16 @@ class DataMatcher(object):
         for regex, action in self._matchers.items():
             match = regex.fullmatch(data)
             if match is not None:
-                # Matched. Try to run the action with the match
+                # Greedy match. We just hand over, and if it
+                # fails, we give up.
                 return action(match)
-                # Should we just hand over or should we wrap??
-        return None
-    
+
     def matchdict(self, data, **kwargs):
         mdict = self.match(data)
         if mdict is not None:
             mdict.update(kwargs)
             return mdict
-        
+
 
 SysExMatcher = DataMatcher()
 
@@ -123,7 +122,7 @@ def _xg_parameter(match):
     rest = match.group(1)
     return XGParameterMatcher.match(rest)
 
-# 43 1n 27 30 00 00 mm ll cc 
+# 43 1n 27 30 00 00 mm ll cc
 @YamahaDevMatcher.register(rb'\x27\x30\x00\x00(...)')
 def _master_tuning(match):
     mm, ll, cc = match.group(1)
@@ -148,12 +147,8 @@ def _xg_on(match):
 # 43 7E 02 cr ct bn bt
 @SysExMatcher.register(rb'\x43\x7E\x02(....)')
 def _chord_change(match):
-    cr, ct, bn, bt = match.group(1)
-    return {'type': SysEx.CHORD, 'cr': cr, 'ct': ct, 'bn': bn, 'bt': bt}
-
-
-def match_sysex(message):
-    return SysExMatcher.match(bytes(message.data))
+    chordbytes = match.group(1)
+    return {'type': SysEx.CHORD, 'chordbytes': chordbytes}
 
 
 # Sequencer Specific
@@ -182,23 +177,22 @@ def _style_vol(match):
 # .. 03 cr ct bn bt
 @UserSongMatcher.register(rb'\x03(....)')
 def _seqspec_chord(match):
-    cr, ct, bn, bt = match.group(1)
-    return {'type': SeqSpec.CHORD, 'cr': cr, 'ct': ct, 'bn': bn, 'bt': bt}
+    chordbytes = match.group(1)
+    return {'type': SeqSpec.CHORD, 'chordbytes': chordbytes}
 
-# .. 04 ss ss
-@UserSongMatcher.register(rb'\x04(..)')
+# .. 04 00 ss
+@UserSongMatcher.register(rb'\x04\x00(.)')
 def _style(match):
-    ss = tuple(match.group(1))
+    ss, = match.group(1)
     return {'type': SeqSpec.STYLE, 'ss': ss}
 
 # 43 7B 00 58 46 30 32 00 xx
-@SeqSpecMatcher.register(rb'\x43\x7B\x00(XF0[12])\x00([\x00-\x1F])')
+@SeqSpecMatcher.register(rb'\x43\x7B\x00XF02\x00([\x00-\x1F])')
 def _xf_version(match):
-    version, (flags,) = match.group(1)
+    (flags,) = match.group(1)
     k, l, x, s, i = util.boolean_bitarray_tuple(flags, 5)
     if not x:
         return {'type': SeqSpec.XF_VERSION,
-            'version': version,
             'k': k, 'l': l, 's': s, 'i': i}
 
 # 43 7B 0C rr ll
@@ -207,3 +201,16 @@ def _xf_guide(match):
     rr, ll = match.group(1)
     return {'type': SeqSpec.GUIDE_TRACK, 'rr': rr, 'll': ll}
 
+
+
+def match_sysex(message):
+    return SysExMatcher.match(bytes(message.data))
+
+def match_seqspec(message):
+    return SeqSpecMatcher.match(bytes(message.data))
+
+def match(message):
+    if message.type == 'sysex':
+        return match_sysex(message)
+    elif message.type == 'sequencer_specific':
+        return match_seqspec(message)

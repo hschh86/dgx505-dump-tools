@@ -8,8 +8,8 @@ displaying and working with control and sysex messages.
 """
 
 import enum
-from collections import namedtuple
-from ..util import hexspace
+from collections import namedtuple, OrderedDict
+from ..util import twohex, hexspace
 
 class _LongformEnum(enum.Enum):
     def __str__(self):
@@ -191,22 +191,48 @@ class NoteEvent(namedtuple('NoteEvent', 'note')):
     def __str__(self):
         return "Note {!s}".format(self.note)
 
+class GuideTracks(namedtuple('GuideTracks', 'rh lh')):
+    __slots__ = ()
+    @staticmethod
+    def channel_format(value):
+        if value is None:
+            return "OFF"
+        else:
+            return format(value, "1X")
 
-class WrappedMessage(namedtuple('WrappedMessage', 'message wrap_type value')):
+    def __str__(self):
+        return "rh: {}, lh: {}".format(
+            self.channel_format(self.rh), self.channel_format(self.lh))
+
+class Bonus(OrderedDict):
+    def __str__(self):
+        if self:
+            return "({})".format(
+                " ".join("{}={!s}".format(k, v) for k, v in self.items()))
+        else:
+            return ""
+
+def bonus_strings(*args):
+    pairs = [(k, format(v, *r)) for k, v, u, *r in args if v != u]
+    if pairs:
+        return Bonus(pairs)
+    return None
+
+class WrappedMessage(namedtuple('WrappedMessage', 'message wrap_type value bonus')):
     __slots__ = ()
 
     def __new__(cls,
-             message=None, wrap_type=None, value=None):
+             message=None, wrap_type=None, value=None, bonus=None):
         """
         Wrap a mido message.
         """
         # I suppose we could use FrozenMessages here,
         # but we are all responsible adults, right?
-        return super().__new__(cls, message, wrap_type, value)
+        return super().__new__(cls, message, wrap_type, value, bonus)
 
     def __str__(self):
         return " ".join(
-            str(i) for i in (self.wrap_type, self.value)
+            str(i) for i in (self.wrap_type, self.value, self.bonus)
             if i is not None)
 
     def __repr__(self):

@@ -33,13 +33,16 @@ import collections.abc
 
 import mido
 
-from ..values import ChorusType, ReverbType, SwitchBool, NoteValue
+from ..values import (
+    ReverbType, ReverbCodes, ChorusType, ChorusCodes,
+    SwitchBool, AcmpSection, NoteValue)
 from .wrappers import (
     MessageType, Control, Rpn, SysEx, SeqSpec, Special,
     UnknownControl, UnknownSysEx, UnknownRpn, UnknownSeqSpec,
-    RpnDataCombo, NoteEvent, WrappedMessage, WrappedChannelMessage)
-from . import voices
-
+    RpnDataCombo, NoteEvent, bonus_strings, Bonus,
+    WrappedMessage, WrappedChannelMessage, GuideTracks)
+from . import voices, exclusives, styles, chords
+from .. import util
 
 # should I implement the mutable mapping abc?
 class MidiState(collections.abc.Mapping):
@@ -415,6 +418,17 @@ class ChannelState(MidiState):
     #     yield ("Pitchwheel", self._pitchwheel)
 
 
+class DispatchDict(dict):
+    # Dict subclass
+    def register(self, key):
+        # decorator...
+        def register_func(action):
+            self[key] = action
+            return action
+        return register_func
+
+
+
 class MidiControlState(MidiState):
     """
     A class that keeps track of the state of the MIDI controls.
@@ -428,9 +442,10 @@ class MidiControlState(MidiState):
     SONG_SETTINGS = frozenset((
         SeqSpec.STYLE, SeqSpec.STYLE_VOL,
         SeqSpec.SECTION, SeqSpec.CHORD,
-        SysEx.CHORD,
         MessageType.TEMPO
     ))
+    # We also recognise SysEx.CHORD, but we delegate the
+    # slot to SeqSpec.CHORD because it's the same thing.
 
     DICT_SLOTS = GENERAL_SETTINGS | SONG_SETTINGS
 
@@ -489,8 +504,9 @@ class MidiControlState(MidiState):
                 return self._channels[message.channel].feed(message)
         elif message.type in ChannelState.CONTROL_MESSAGE_TYPES:
             return self._channels[message.channel].feed(message)
-        elif message.type == "sysex":
-            return self._handle_sysex(message)
+        # System Exclusive / Sequencer Specific
+        elif message.type in {"sysex", "sequencer_specific"}:
+            return self._handle_sysex_seqspec(message)
         # User Song Polytouch Special Handling
         elif self.user_song and message.type in ChannelState.US_MESSAGE_TYPES:
             return self._channels[message.channel].feed(message)
@@ -499,128 +515,190 @@ class MidiControlState(MidiState):
             # We use the bpm instead of the midi-tempo as value.
             return WrappedMessage(
                 message, MessageType.TEMPO, mido.tempo2bpm(message.tempo))
-        # Sequencer Specific Meta Message handling
-        elif message.type == "sequencer_specific":
-            return self._handle_seqspec(message)
         return None
+    
+    _DATA_DISPATCHER = DispatchDict()
 
-    def _handle_sysex(self, message):
-        sysex_type = None
-        value = None
-        data = message.data
-        if data == (0x7E, 0x7F, 0x09, 0x01):
-            # GM System ON
-            # F0 7E 7F 09 01 F7
-            sysex_type = SysEx.GM_ON
-            self.reset_gm()
+    def _handle_sysex_seqspec(self, message):
+        matchdict = exclusives.match(message)
+        if matchdict:
+            try:
+                dispatch = self._DATA_DISPATCHER[matchdict['type']]
+            except KeyError:
+                pass
+            else:
+                return dispatch(self, message, **matchdict)
+        return self._handle_unknown_sysex_seqspec(message)
+    
+    @staticmethod
+    def _handle_unknown_sysex_seqspec(message):
+        if message.type == 'sysex':
+            return WrappedMessage(message, UnknownSysEx(message.data))
+        elif message.type == 'sequencer_specific':
+            return WrappedMessage(message, UnknownSeqSpec(message.data)) 
+  
+    @_DATA_DISPATCHER.register(SysEx.GM_ON)
+    def _handle_gm_on(self, message, type):
+        assert type is SysEx.GM_ON
+        self.reset_gm()
+        return WrappedMessage(message, type)
 
-        elif (len(data) == 6 and
-              data[:4] == (0x7F, 0x7F, 0x04, 0x01)):
-            # MIDI Master Volume
-            # F0 7F 7F 04 01 xx mm F7
-            sysex_type = SysEx.MASTER_VOL
-            value = data[5]
+    @_DATA_DISPATCHER.register(SysEx.MASTER_VOL)
+    def _handle_midi_master_volume(self, message, type, ll, mm):
+        assert type is SysEx.MASTER_VOL
+        # MIDI Master Volume.
+        # mm used, ll ignored.
+        value = mm
+        self[type] = value
+        return WrappedMessage(message, type, value,
+            bonus_strings(
+                ('ll', ll, 0x00, '02X')
+            ))
+    
+    @_DATA_DISPATCHER.register(SysEx.MASTER_TUNE)
+    def _handle_midi_master_tuning(self, message, type, mm, ll, cc):
+        assert type is SysEx.MASTER_TUNE
+        m = mm & 0xF
+        l = ll & 0xF
+        t_val = ((m << 4) | l ) - 0x80
+        value = max(-100, min(t_val, +100))  # clamp
+        self[type] = value
+        return WrappedMessage(message, type, value,
+            bonus_strings(
+                ('t_val', t_val, value, '+d'),
+                ('mh', mm >> 4, 0x0, '1X'),
+                ('lh', ll >> 4, 0x0, '1X'),
+                ('cc', cc, 0x00, '02X')
+            ))
+    
+    _EFFECT_CODES = {
+        SysEx.REVERB_TYPE: ReverbCodes,
+        SysEx.CHORUS_TYPE: ChorusCodes,
+    }
+    @_DATA_DISPATCHER.register(SysEx.CHORUS_TYPE)
+    @_DATA_DISPATCHER.register(SysEx.REVERB_TYPE)
+    def _handle_rev_chorus_types(self, message, type, n, mm, ll):
+        code_lookup = self._EFFECT_CODES[type]
+        value = code_lookup.from_code(mm, ll)
+        tm, tl = code_lookup[value]
+        self[type] = value
+        return WrappedMessage(message, type, value, 
+            bonus_strings(
+                ('n', n, 0x0, '1X'),
+                ('mm', mm, tm, '02X'),
+                ('ll', ll, tl, '02X'),
+            ))    
 
-        elif data[0] == 0x43:
-            # Yamaha Exclusive Messages F0 43 .. F7
-            if data[1] >> 4 == 1:
-                # Yamaha Exclusive controls F0 43 1x .. F7
-                sysex_type, value = self._yamaha_controls(data)
-            elif (len(data) == 7 and
-                  data[1:3] == (0x7E, 0x02)):
-                # SysEx Chord Change
-                # F0 43 7E 02 rr tt rr tt F7
-                sysex_type = SysEx.CHORD
+    @_DATA_DISPATCHER.register(SysEx.XG_ON)
+    def _handle_xg_on(self, message, type, n):
+        assert type is SysEx.XG_ON
+        self.reset_gm()
+        return WrappedMessage(message, type, None,
+            bonus_strings(
+                ('n', n, 0x0, '1X')
+            ))
+    
+    @_DATA_DISPATCHER.register(SysEx.XG_RESET)
+    def _handle_xg_reset(self, message, type, n):
+        assert type is SysEx.XG_RESET
+        self.reset_param()
+        return WrappedMessage(message, type, None,
+            bonus_strings(
+                ('n', n, 0x0, '1X')
+            ))
+    
+    @_DATA_DISPATCHER.register(SysEx.CHORD)
+    @_DATA_DISPATCHER.register(SeqSpec.CHORD)
+    def _handle_chord(self, message, type, chordbytes):
+        # We use SeqSpec.CHORD as the slot.
+        try:
+            value = chords.byte_chord(chordbytes)
+        except (KeyError, ValueError):
+            value = None
+        self[SeqSpec.CHORD] = value
 
-        if sysex_type is None:
-            sysex_type = UnknownSysEx(message.data)
+        cr, _, bn, _ = chordbytes
+        if value is None or cr >> 4 == 0 or bn >> 4 == 0:
+            bonus = Bonus(('chordbytes', util.hexspace(chordbytes)))
         else:
-            if value is not None:
-                self[sysex_type] = value
-
-        return WrappedMessage(
-            message, sysex_type, value)
-
-    def _yamaha_controls(self, data):
-        """
-        This method is for handling a message
-        F7 43 1x .. F7.
-        Precondition:
-        data[0] == 0x43, data[1] >> 4 == 1.
-        Returns (sysex_type, value) for wrapping
-        messages.
-        May also mutate the internal state.
-        """
-        sysex_type = None
-        value = None
-        if (len(data) < 9 and data[2] == 0x4C):
-            # XG Parameter Change
-            # F0 43 1x 4C .. F7
-            a, b = data[3:5], data[5:]
-            if len(b) == 3 and a == (0x02, 0x01):
-                # Chorus/Reverb
-                # F0 43 1x 4C 02 01 tt mm ll F7
-                tt, mm, ll = b
-                if tt == 0x00:
-                    # Reverb type.
-                    sysex_type = SysEx.REVERB_TYPE
-                    value = ReverbType.from_b(mm, ll)
-
-                elif tt == 0x20:
-                    # Chorus Type
-                    sysex_type = SysEx.CHORUS_TYPE
-                    value = ChorusType.from_b(mm, ll)
-
-            elif len(b) == 2 and a == (0x00, 0x00):
-                if b == (0x7E, 0x00):
-                    # XG System On
-                    # F0 43 1x 4C 00 00 7E 00 F7
-                    sysex_type = SysEx.XG_ON
-                    self.reset_gm()
-
-                elif b == (0x7F, 0x00):
-                    # XG All Parameter Reset
-                    # F0 43 1x 4C 00 00 7F 00 F7
-                    sysex_type = SysEx.XG_RESET
-                    self.reset_param()
-
-        elif (len(data) == 9 and
-            data[2:6] == (0x27, 0x30, 0x00, 0x00)):
-            # MIDI Master Tuning
-            # F0 43 1x 27 30 00 00 xm xl xx F7
-            sysex_type = SysEx.MASTER_TUNE
-            mm, ll = data[6:8]
-            ml = ((mm & 0xF) << 4) | (ll & 0xF)
-            # clamp to [-100, +100]
-            value = max(-100, min(ml - 0x80, +100))
-
-        return sysex_type, value
-
-    def _handle_seqspec(self, message):
-        """
-        Handling for supported sequencer-specific
-        meta-events.
-        """
-        seqspec_type = None
-        value = None
-
-        # Yamaha Meta Events
-        # data = 43 76 1A tt ..
-        data = message.data        
-        if data[:3] == (0x43, 0x76, 0x1A):
-            pass
-        
+            bonus = None
+        return WrappedMessage(message, type, value, bonus)
+    
+    @_DATA_DISPATCHER.register(SeqSpec.STYLE)
+    def _handle_style(self, message, type, ss):
+        assert type is SeqSpec.STYLE
+        # ss is the style number, minus 1.
+        try:
+            value = styles.from_number(ss+1)
+        except KeyError:
+            value = None
+            bonus = Bonus(('ss', format(ss, '02X')))
         else:
-            seqspec_type = UnknownSeqSpec(data)
-        
-        return WrappedMessage(
-            message, seqspec_type, value
+            bonus = None
+
+        self[SeqSpec.STYLE] = value
+        return WrappedMessage(message, type, value, bonus)
+    
+    @_DATA_DISPATCHER.register(SeqSpec.STYLE_VOL)
+    def _handle_style_vol(self, message, type, vv):
+        assert type is SeqSpec.STYLE_VOL
+        value = vv
+        self[SeqSpec.STYLE_VOL] = value
+        return WrappedMessage(message, type, value)
+
+    @_DATA_DISPATCHER.register(SeqSpec.SECTION)
+    def _handle_section(self, message, type, ss):
+        assert type is SeqSpec.SECTION
+        try:
+            value = AcmpSection(ss)
+        except KeyError:
+            value = None
+            bonus = Bonus(('ss', format(ss, '02X')))
+        else:
+            bonus = None
+        self[SeqSpec.SECTION] = value
+        return WrappedMessage(message, type, value, bonus)
+
+    @staticmethod
+    def _guide_track_channel(byte):
+        if byte == 0x00:
+            return None
+        elif 0x01 <= byte <= 0x10:
+            return byte - 1
+        else:
+            raise ValueError(byte)
+
+    @_DATA_DISPATCHER.register(SeqSpec.GUIDE_TRACK)
+    def _handle_guide(self, message, type, rr, ll):
+        assert type is SeqSpec.GUIDE_TRACK
+        try:
+            value = GuideTracks(self._guide_track_channel(rr), 
+                                self._guide_track_channel(ll))
+        except ValueError:
+            value = None
+            bonus = Bonus(('rr', format(rr, '02X'),
+                           'll', format(ll, '02X')))
+        else:
+            bonus = None
+        return WrappedMessage(message, type, value, bonus)
+    
+    @_DATA_DISPATCHER.register(SeqSpec.XF_VERSION)
+    def _handle_xf(self, message, type, k, l, s, i):
+        assert type is SeqSpec.XF_VERSION
+        value = Bonus(
+            ('Karaoke', k),
+            ('Lyrics', l),
+            ('Style', s),
+            ('Info', i)
         )
+        return WrappedMessage(message, type, value)
+
+
+    
 
 
 
-
-
+    
 
     # def _iter_values(self):
     #     yield "Local", self._local
