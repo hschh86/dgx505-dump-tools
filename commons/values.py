@@ -253,11 +253,15 @@ class WrappedIntValue(object):
     """
     A class for wrapping int values in.
     """
-    def __init__(self, int_value):
+    def __init__(self, int_value, format_spec=''):
         self._int_value = int_value
+        self._format_spec = format_spec
 
     def __int__(self):
         return self._int_value
+
+    def __str__(self):
+        return format(self._int_value, self._format_spec)
 
     def hex(self):
         """
