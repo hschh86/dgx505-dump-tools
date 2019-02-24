@@ -6,7 +6,6 @@ Utilities and helper functions that don't require mido
 """
 import sys
 import itertools
-import functools
 import collections
 import collections.abc
 
@@ -15,8 +14,8 @@ YAMAHA = 0x43
 
 
 # Formatting
-onehex = functools.partial(format, format_spec="1X")
-twohex = functools.partial(format, format_spec="02X")
+onehex = "{:1X}".format
+twohex = "{:02X}".format
 
 def hexspace(seq):
     """
