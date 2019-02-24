@@ -2,15 +2,16 @@
 styles.py
 """
 
-#TODO: Special casing for Style 136? or maybe just roll into styles.csv?
-
-
 import collections
-
-Style = collections.namedtuple('Style', 'number name category')
 
 from . import table_util
 from .. import util
+
+class Style(collections.namedtuple('Style', 'number name category')):
+    __slots__ = ()
+
+    def __str__(self):
+        return "{:03d} {}".format(self.number, self.name)
 
 class _StyleLookup(object):
     @util.lazy_property
