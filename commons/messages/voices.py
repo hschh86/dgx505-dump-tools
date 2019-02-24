@@ -10,7 +10,7 @@ from . import table_util
 from .. import util
 
 class Voice(collections.namedtuple("Voice",
-        "number name category msb lsb prog")):
+        "number name fullname category msb lsb prog")):
     __slots__ = ()
 
     def voice_string(self):
@@ -29,7 +29,7 @@ class Voice(collections.namedtuple("Voice",
 
 # The Silent None Voice.
 # must redo this properly.....
-SILENT = Voice(None, None, None, None, None, None)
+SILENT = Voice(None, None, None, None, None, None, None)
 
 # Useless Class Strikes Again
 
@@ -45,21 +45,34 @@ class _VoiceLookup(object):
         _names_nonxg = {}
         _names_xg = {}
         # read in data from csv file
-        for voice in table_util.read_csv_table_namedtuple(
-            'tables/voices.csv', Voice, (int, str, str, int, int, int)
+        full_name_count = 0
+        for r_voice in table_util.read_csv_table_namedtuple(
+            'tables/voices.csv', Voice, (int, str, str, str, int, int, int)
         ):
+            # The fullnames are not included if different from name,
+            # so we manually handle that
+            if r_voice.fullname:
+                voice = r_voice
+                full_name_count += 1
+            else:
+                voice = r_voice._replace(fullname=r_voice.name)
+
             # assign to dictionaries
             _numbers[voice.number] = voice
             _bank_programs[(voice.msb, voice.lsb, voice.prog)] = voice
             if voice.category.startswith("XG"):
                 _names_xg[voice.name] = voice
+                if voice is r_voice:
+                    _names_xg[voice.fullname] = voice
             else:
                 _names_nonxg[voice.name] = voice
+                if voice is r_voice:
+                    _names_nonxg[voice.fullname] = voice
 
         # check we have everything
         assert (len(_numbers)
                 == len(_bank_programs)
-                == len(_names_nonxg) + len(_names_xg))
+                == len(_names_nonxg) + len(_names_xg) - full_name_count)
 
         return self.DictTuple(_numbers, _bank_programs, _names_nonxg, _names_xg)
 
