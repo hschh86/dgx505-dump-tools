@@ -44,6 +44,26 @@ from .wrappers import (
 from . import voices, exclusives, styles, chords
 from .. import util
 
+
+class DispatchDict(dict):
+    """
+    A subclass of dict that has a decorator
+    that can assigns the decorated function to keys in the dict
+    """
+    # Dict subclass
+    def register(self, *keys):
+        """
+        A decorator that assigns the decorated function to the
+        provided key(s)
+        """
+        # decorator...
+        def register_func(action):
+            for key in keys:
+                self[key] = action
+            return action
+        return register_func
+
+
 # should I implement the mutable mapping abc?
 class MidiState(collections.abc.Mapping):
     DICT_SLOTS = frozenset()
@@ -52,6 +72,9 @@ class MidiState(collections.abc.Mapping):
         self._dict = {key: None for key in self.DICT_SLOTS}
 
     def reset_blank(self):
+        """
+        Set every key's value to None
+        """
         self._dict.update((key, None) for key in self._dict)
 
     def update(self, pairs):
@@ -167,9 +190,9 @@ class ChannelState(MidiState):
         "polytouch",
     ))
 
-    RECOGNISED_MESSAGE_TYPES = (
-        CONTROL_MESSAGE_TYPES | NOTE_MESSAGE_TYPES | US_MESSAGE_TYPES
-    )
+    # RECOGNISED_MESSAGE_TYPES = (
+    #     CONTROL_MESSAGE_TYPES | NOTE_MESSAGE_TYPES | US_MESSAGE_TYPES
+    # )
 
     REG_CONTROLLERS = (
         BANK_CONTROLLERS | CONT_CONTROLLERS | RPN_CONTROLLERS
@@ -269,33 +292,19 @@ class ChannelState(MidiState):
         # Feed In a Mido Message.
         if message.channel != self._channel:
             raise ValueError("Incorrect channel: {}".format(message))
-
-        if message.type not in self.RECOGNISED_MESSAGE_TYPES:
+        try:
+            method = self._MESSAGE_TYPE_DISPATCHER[message.type]
+        except KeyError:
             # Pass through 'silently'
             return None
+        else:
+            # Call the method
+            return method(self, message)
+    
+    # Message Type handling
+    _MESSAGE_TYPE_DISPATCHER = DispatchDict()
 
-        if message.type in self.NOTE_MESSAGE_TYPES:
-            return self._handle_note(message)
-        elif message.type == "control_change":
-            return self._handle_control(message)
-        elif message.type == "program_change":
-            # Do we report a no-change?
-            voice = self._change_program(message.program)
-            return WrappedChannelMessage(
-                message, MessageType.PROGRAM_CHANGE, voice)
-        elif message.type == "pitchwheel":
-            self[MessageType.PITCHWHEEL] = message.pitch
-            return WrappedChannelMessage(
-                message, MessageType.PITCHWHEEL, message.pitch)
-        # Special handling for US_MESSAGE_TYPES
-        elif message.type in self.US_MESSAGE_TYPES:
-            if self.user_song:
-                return self._handle_us(message)
-            else:
-                return None
-        # Shouldn't fall through here
-        raise ValueError("Unrecognised message: {}".format(message))
-
+    @_MESSAGE_TYPE_DISPATCHER.register(*NOTE_MESSAGE_TYPES)
     def _handle_note(self, message):
         # Wrap note_on and note_off.
         # We don't keep track of them, we just wrap them
@@ -308,6 +317,7 @@ class ChannelState(MidiState):
             value = message.velocity
         return WrappedChannelMessage(message, note_type, value)
 
+    @_MESSAGE_TYPE_DISPATCHER.register("control_change")
     def _handle_control(self, message):
         try:
             control_type = Control(message.control)
@@ -315,71 +325,113 @@ class ChannelState(MidiState):
             # Unknown Control
             control_type = UnknownControl(message.control)
             return WrappedChannelMessage(
-                message, control_type, message.value)
+                message, control_type, message.value)        
+        try:
+            method = self._CONTROL_DISPATCHER[control_type]
+        except KeyError:
+            # Shouldn't happen but just in case
+            raise ValueError("Unrecognised message: {}".format(message))
+        else:
+            return method(self, message, control_type)    
 
-        # Regular Values.
-        # (Do we handle the bank/rpn separately?)
-        if control_type in self.REG_CONTROLLERS:
-            # Simply set the value to the value.
-            return self._set_value(
-                control_type, message.value, message)
-        elif control_type in self.SWITCH_CONTROLLERS:
-            # We need to map to a switch
-            return self._set_value(
-                control_type, SwitchBool.from_b(message.value), message)
-        elif control_type in self.OFFSET_CONTROLLERS:
-            # Apply the offset
-            return self._set_value(
-                control_type, message.value - 0x40, message)
-        elif control_type in self.DATA_CONTROLLERS:
-            if control_type is Control.DATA_LSB:
-                # For LSB, don't set anything.
-                # Just return a wrapped message.
-                return WrappedChannelMessage(
-                    message, control_type, message.value)
-            # Else, we hand over to special MSB RPN handling
-            elif control_type is Control.DATA_MSB:
-                return self._set_rpn(
-                    control_type, message.value, message)
-            elif control_type is Control.DATA_DEC:
-                return self._set_rpn(
-                    control_type, self[Control.DATA_MSB]-1, message)
-            elif control_type is Control.DATA_INC:
-                return self._set_rpn(
-                    control_type, self[Control.DATA_MSB]+1, message)
-        elif control_type in self.MODE_CONTROLLERS:
-            if control_type is Control.RESET_CONTROLS:
-                self.reset_controllers()
-            # we don't set anything
-            return WrappedChannelMessage(message, control_type, None)
-        elif control_type is Control.PORTAMENTO_CTRL:
-            # Special case, we don't set anything
-            value = NoteValue(message.value)
-            return WrappedChannelMessage(message, control_type, value)
-        elif control_type is Control.VARIATION:
-            # The DGX-505 doesn't support this message, but
-            # it's present in recorded user songs.
-            # Special case, We just return straight through?
-            return WrappedChannelMessage(
-                message, control_type, message.value)
-        # We shouldn't fall through here
-        raise ValueError("Unrecognised message: {}".format(message))
+    @_MESSAGE_TYPE_DISPATCHER.register("program_change")
+    def _handle_program_change(self, message):
+        # Do we report a no-change?
+        voice = self._change_program(message.program)
+        return WrappedChannelMessage(
+            message, MessageType.PROGRAM_CHANGE, voice)
 
+    @_MESSAGE_TYPE_DISPATCHER.register("pitchwheel")
+    def _handle_pitchwheel(self, message):
+        self[MessageType.PITCHWHEEL] = message.pitch
+        return WrappedChannelMessage(
+            message, MessageType.PITCHWHEEL, message.pitch)
+
+    @_MESSAGE_TYPE_DISPATCHER.register(*US_MESSAGE_TYPES)
     def _handle_us(self, message):
         # Very Special Special Case
-        if message.type == "polytouch" and message.note == 0x00:
+        if (self.user_song and
+                message.type == "polytouch" and
+                message.note == 0x00):
             # Octave Offset.
             # It's an offset value from 0x40.
-            return self._set_value(
-                Special.OCTAVE, message.value - 0x40, message)
+            # (Sneaky reuse of a control handling method here)
+            return self._handle_offset(message, Special.OCTAVE)
         else:
             return None
+    
+    # Control type handling
+    _CONTROL_DISPATCHER = DispatchDict()
 
-    def _set_value(self, wrap_type, value, message):
+    @_CONTROL_DISPATCHER.register(*REG_CONTROLLERS)
+    def _handle_reg(self, message, control_type):
+        # simply set the value.
+        return self._set_value(
+            message, control_type, message.value)
+    
+    @_CONTROL_DISPATCHER.register(*SWITCH_CONTROLLERS)
+    def _handle_switch(self, message, control_type):
+        # map to a switch.
+        value = SwitchBool.from_b(message.value)
+        return self._set_value(
+            message, control_type, value)
+    
+    @_CONTROL_DISPATCHER.register(*OFFSET_CONTROLLERS)
+    def _handle_offset(self, message, control_type):
+        # Apply the offset
+        value = message.value - 0x40
+        return self._set_value(
+            message, control_type, value)
+    
+    @_CONTROL_DISPATCHER.register(Control.DATA_LSB)
+    def _handle_data_lsb(self, message, control_type):
+        # Don't set anything, just return a wrapped message.
+        return WrappedChannelMessage(
+            message, control_type, message.value)
+    
+    @_CONTROL_DISPATCHER.register(Control.DATA_MSB)
+    def _handle_data_msb(self, message, control_type):
+        # Special MSB RPN handling.
+        return self._set_rpn(
+            message, control_type, message.value)
+    
+    @_CONTROL_DISPATCHER.register(Control.DATA_DEC)
+    def _handle_data_dec(self, message, control_type):
+        return self._set_rpn(
+            message, control_type, self[Control.DATA_MSB]-1)
+    
+    @_CONTROL_DISPATCHER.register(Control.DATA_INC)
+    def _handle_data_inc(self, message, control_type):
+        return self._set_rpn(
+            message, control_type, self[Control.DATA_MSB]+1)
+        
+    @_CONTROL_DISPATCHER.register(*MODE_CONTROLLERS)
+    def _handle_mode(self, message, control_type):
+        if control_type is Control.RESET_CONTROLS:
+            self.reset_controllers()
+        # we don't set anything
+        return WrappedChannelMessage(message, control_type, None)
+                
+    @_CONTROL_DISPATCHER.register(Control.PORTAMENTO_CTRL)
+    def _handle_portamento(self, message, control_type):
+        # Special case, we don't set anything
+        value = NoteValue(message.value)
+        return WrappedChannelMessage(message, control_type, value)
+
+    @_CONTROL_DISPATCHER.register(Control.VARIATION)
+    def _handle_variation(self, message, control_type):
+        # The DGX-505 doesn't support this message, but
+        # it's present in recorded user songs.
+        # Special case, We just return straight through?
+        return WrappedChannelMessage(
+            message, control_type, message.value)
+
+    # sub methods for setting the value
+    def _set_value(self, message, wrap_type, value):
         self[wrap_type] = value
         return WrappedChannelMessage(message, wrap_type, value)
 
-    def _set_rpn(self, wrap_type, msb_value, message):
+    def _set_rpn(self, message, wrap_type, msb_value):
         rpn = self.rpn()
         if 0x00 <= msb_value <= 0x7F:
             # we have a valid value.
@@ -409,23 +461,7 @@ class ChannelState(MidiState):
 
 
 
-    # def _iter_values(self):
-    #     yield ("Bank Program", self._bank_program)
-    #     for k, v in self._controls.items():
-    #         yield (str(k), v)
-    #     for k in self._data_msb:
-    #         yield (str(k), (self._data_msb[k], self._data_lsb[k]))
-    #     yield ("Pitchwheel", self._pitchwheel)
 
-
-class DispatchDict(dict):
-    # Dict subclass
-    def register(self, key):
-        # decorator...
-        def register_func(action):
-            self[key] = action
-            return action
-        return register_func
 
 
 
@@ -453,7 +489,7 @@ class MidiControlState(MidiState):
         super().__init__()
 
         # There are 16 channels, we'll simply use a list to keep track of them
-        self._channels = [ChannelState(n, user_song=user_song) for n in range(16)]
+        self._channels = tuple(ChannelState(n, user_song=user_song) for n in range(16))
 
         # Additionally, we also have the sysex and a few other parameters
         # to keep track of.
@@ -466,6 +502,10 @@ class MidiControlState(MidiState):
         # Unknown: How exactly does the meta-message handling work?
         # Does it need to be on track 0?
         # How about mixing sysex and meta chord changes?
+
+    @property
+    def channels(self):
+        return self._channels
 
     def reset_gm(self):
         self.update((
@@ -499,7 +539,8 @@ class MidiControlState(MidiState):
                 value = SwitchBool.from_b(message.value)
                 self.local(value)
                 return WrappedMessage(
-                    message, Control.LOCAL, value)
+                    message, Control.LOCAL, value,
+                    bonus_strings(('n', message.channel, 0x0, '1X')))
             else:
                 return self._channels[message.channel].feed(message)
         elif message.type in ChannelState.CONTROL_MESSAGE_TYPES:
@@ -516,7 +557,7 @@ class MidiControlState(MidiState):
             return WrappedMessage(
                 message, MessageType.TEMPO, mido.tempo2bpm(message.tempo))
         return None
-    
+
     _DATA_DISPATCHER = DispatchDict()
 
     def _handle_sysex_seqspec(self, message):
@@ -529,14 +570,14 @@ class MidiControlState(MidiState):
             else:
                 return dispatch(self, message, **matchdict)
         return self._handle_unknown_sysex_seqspec(message)
-    
+
     @staticmethod
     def _handle_unknown_sysex_seqspec(message):
         if message.type == 'sysex':
             return WrappedMessage(message, UnknownSysEx(message.data))
         elif message.type == 'sequencer_specific':
-            return WrappedMessage(message, UnknownSeqSpec(message.data)) 
-  
+            return WrappedMessage(message, UnknownSeqSpec(message.data))
+
     @_DATA_DISPATCHER.register(SysEx.GM_ON)
     def _handle_gm_on(self, message, type):
         assert type is SysEx.GM_ON
@@ -554,9 +595,9 @@ class MidiControlState(MidiState):
             bonus_strings(
                 ('ll', ll, 0x00, '02X')
             ))
-    
+
     @_DATA_DISPATCHER.register(SysEx.MASTER_TUNE)
-    def _handle_midi_master_tuning(self, message, type, mm, ll, cc):
+    def _handle_midi_master_tuning(self, message, type, n, mm, ll, cc):
         assert type is SysEx.MASTER_TUNE
         m = mm & 0xF
         l = ll & 0xF
@@ -565,12 +606,13 @@ class MidiControlState(MidiState):
         self[type] = value
         return WrappedMessage(message, type, value,
             bonus_strings(
+                ('n', n, 0x0, '1X'),
                 ('t_val', t_val, value, '+d'),
                 ('mh', mm >> 4, 0x0, '1X'),
                 ('lh', ll >> 4, 0x0, '1X'),
                 ('cc', cc, 0x00, '02X')
             ))
-    
+
     _EFFECT_CODES = {
         SysEx.REVERB_TYPE: ReverbCodes,
         SysEx.CHORUS_TYPE: ChorusCodes,
@@ -582,12 +624,12 @@ class MidiControlState(MidiState):
         value = code_lookup.from_code(mm, ll)
         tm, tl = code_lookup[value]
         self[type] = value
-        return WrappedMessage(message, type, value, 
+        return WrappedMessage(message, type, value,
             bonus_strings(
                 ('n', n, 0x0, '1X'),
                 ('mm', mm, tm, '02X'),
                 ('ll', ll, tl, '02X'),
-            ))    
+            ))
 
     @_DATA_DISPATCHER.register(SysEx.XG_ON)
     def _handle_xg_on(self, message, type, n):
@@ -597,7 +639,7 @@ class MidiControlState(MidiState):
             bonus_strings(
                 ('n', n, 0x0, '1X')
             ))
-    
+
     @_DATA_DISPATCHER.register(SysEx.XG_RESET)
     def _handle_xg_reset(self, message, type, n):
         assert type is SysEx.XG_RESET
@@ -606,9 +648,8 @@ class MidiControlState(MidiState):
             bonus_strings(
                 ('n', n, 0x0, '1X')
             ))
-    
-    @_DATA_DISPATCHER.register(SysEx.CHORD)
-    @_DATA_DISPATCHER.register(SeqSpec.CHORD)
+
+    @_DATA_DISPATCHER.register(SysEx.CHORD, SeqSpec.CHORD)
     def _handle_chord(self, message, type, chordbytes):
         # We use SeqSpec.CHORD as the slot.
         try:
@@ -619,26 +660,24 @@ class MidiControlState(MidiState):
 
         cr, _, bn, _ = chordbytes
         if value is None or cr >> 4 == 0 or bn >> 4 == 0:
-            bonus = Bonus(('chordbytes', util.hexspace(chordbytes)))
+            bonus = Bonus([('chordbytes', util.hexspace(chordbytes))])
         else:
             bonus = None
         return WrappedMessage(message, type, value, bonus)
-    
+
     @_DATA_DISPATCHER.register(SeqSpec.STYLE)
     def _handle_style(self, message, type, ss):
         assert type is SeqSpec.STYLE
         # ss is the style number, minus 1.
         try:
             value = styles.from_number(ss+1)
+            bonus = None
         except KeyError:
             value = None
-            bonus = Bonus(('ss', format(ss, '02X')))
-        else:
-            bonus = None
-
+            bonus = Bonus([('ss', format(ss, '02X'))])
         self[SeqSpec.STYLE] = value
         return WrappedMessage(message, type, value, bonus)
-    
+
     @_DATA_DISPATCHER.register(SeqSpec.STYLE_VOL)
     def _handle_style_vol(self, message, type, vv):
         assert type is SeqSpec.STYLE_VOL
@@ -651,64 +690,38 @@ class MidiControlState(MidiState):
         assert type is SeqSpec.SECTION
         try:
             value = AcmpSection(ss)
+            bonus = None
         except KeyError:
             value = None
-            bonus = Bonus(('ss', format(ss, '02X')))
-        else:
-            bonus = None
+            bonus = Bonus([('ss', format(ss, '02X'))])
         self[SeqSpec.SECTION] = value
         return WrappedMessage(message, type, value, bonus)
 
-    @staticmethod
-    def _guide_track_channel(byte):
-        if byte == 0x00:
-            return None
-        elif 0x01 <= byte <= 0x10:
-            return byte - 1
-        else:
-            raise ValueError(byte)
+
 
     @_DATA_DISPATCHER.register(SeqSpec.GUIDE_TRACK)
     def _handle_guide(self, message, type, rr, ll):
         assert type is SeqSpec.GUIDE_TRACK
         try:
-            value = GuideTracks(self._guide_track_channel(rr), 
-                                self._guide_track_channel(ll))
+            value = GuideTracks.from_rl_bytes(rr, ll)
+            bonus = None
         except ValueError:
             value = None
-            bonus = Bonus(('rr', format(rr, '02X'),
-                           'll', format(ll, '02X')))
-        else:
-            bonus = None
+            bonus = Bonus([('rr', format(rr, '02X'),
+                           'll', format(ll, '02X'))])
         return WrappedMessage(message, type, value, bonus)
-    
+
     @_DATA_DISPATCHER.register(SeqSpec.XF_VERSION)
     def _handle_xf(self, message, type, k, l, s, i):
         assert type is SeqSpec.XF_VERSION
-        value = Bonus(
+        value = Bonus([
             ('Karaoke', k),
             ('Lyrics', l),
             ('Style', s),
             ('Info', i)
-        )
+        ])
         return WrappedMessage(message, type, value)
 
-
-    
-
-
-
-    
-
-    # def _iter_values(self):
-    #     yield "Local", self._local
-    #     yield "Master volume", self._master_vol
-    #     yield "Master tuning", self._master_tune
-    #     yield "Reverb type", self._reverb
-    #     yield "Chorus type", self._chorus
-    #     for channel in self._channels:
-    #         yield "CHANNEL", channel._channel
-    #         yield from channel._iter_values()
 
     # def _dump(self):
     #     for x, y in self._iter_values():

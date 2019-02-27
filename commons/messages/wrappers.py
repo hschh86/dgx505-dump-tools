@@ -203,6 +203,20 @@ class GuideTracks(namedtuple('GuideTracks', 'rh lh')):
     def __str__(self):
         return "rh: {}, lh: {}".format(
             self.channel_format(self.rh), self.channel_format(self.lh))
+    
+    @staticmethod
+    def from_byte_channel(byte):
+        if byte == 0x00:
+            return None
+        elif 0x01 <= byte <= 0x10:
+            return byte - 1
+        else:
+            raise ValueError(byte)
+    
+    @classmethod
+    def from_rl_bytes(cls, rr, ll):
+        return cls(cls.from_byte_channel(rr), cls.from_byte_channel(ll))
+
 
 class Bonus(OrderedDict):
     def __str__(self):
