@@ -3,9 +3,10 @@ import struct
 import functools
 
 from .. import util
-from ..maps import BytesAssertMap, RangeMap, EffectTypeMap, KeyMap
+from ..maps import BytesAssertMap, RangeMapBase, RangeMap, EffectTypeMap, KeyMap
 from ..values import (HarmonyType, ReverbType, ChorusType,
     AcmpSection, BLANK, SwitchBool)
+from ..tables import styles, voices
 
 
 @functools.lru_cache()  # cache it, because why not eh
@@ -17,7 +18,8 @@ def get_struct(bformat):
 class _RegLookup(object):
     PAD_MAP = BytesAssertMap(b'\x00\x00')
     NUMBER_MAP = RangeMap()
-    VOICE_MAP = RangeMap(1, 494, +1)
+    VOICE_MAP = RangeMapBase(voices.from_number, 1, 494, +1)
+    STYLE_MAP = RangeMapBase(styles.from_number, 1, 136, +1, none_val=0xFF)
     OCTAVE_MAP = RangeMap(-2, +2, format_string="1d")
     SPLIT_MAP = KeyMap()
     REVERB_MAP = EffectTypeMap(ReverbType)
@@ -50,7 +52,7 @@ class _RegLookup(object):
         # 00
         ("_first byte",         "1s",   BytesAssertMap(b'\x01')),
         # Style
-        ("Style number",        "B",    RangeMap(1, 136, +1, 0xFF)),
+        ("Style number",        "B",    STYLE_MAP),
         ("Accompaniment",       "B",    ACMP_MAP),
         ("Split Point",         "b",    SPLIT_MAP),
         ("_Split Point 2",      "b",    SPLIT_MAP),

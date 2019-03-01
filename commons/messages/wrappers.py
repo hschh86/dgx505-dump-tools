@@ -260,3 +260,16 @@ class WrappedChannelMessage(WrappedMessage):
 
     def __str__(self):
         return f"{self.channel:X} {super().__str__()}"
+
+class WrappedProgramChangeMessage(WrappedChannelMessage):
+
+    def __new__(cls, message, value):
+        return super().__new__(message=message, 
+            wrap_type=MessageType.PROGRAM_CHANGE, value=value)        
+
+    def __str__(self):
+        voice_string = self.value.voice_string_extended()
+        s = f"{self.channel:X} {self.wrap_type!s} {voice_string}"
+        if self.bonus is not None:
+            s += f" {self.bonus!s}"
+        return s
