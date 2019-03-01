@@ -225,6 +225,16 @@ class lazy_property(object):
 #     def __get__(self, obj, objtype=None):
 #         return super().__get__(objtype)
 
+# Is this silly?
+# I don't know
+def dexecute(f):
+    """
+    Immediately call with no arguments.
+    (Use this as a decorator.)
+    """
+    return f()
+
+
 
 def iter_pairs(itr):
     """

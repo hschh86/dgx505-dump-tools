@@ -19,4 +19,4 @@ def test_reg(datafile, valuefile):
     dset = dobj.get_setting(4, 2)
     assert dset.unusual_len() == 0
     for key, value in sets.items():
-        assert dset[key].vstr == value
+        assert str(dset[key].value) == value

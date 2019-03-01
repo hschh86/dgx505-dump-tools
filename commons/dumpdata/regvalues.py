@@ -4,7 +4,8 @@ import functools
 
 from .. import util
 from ..maps import BytesAssertMap, RangeMap, EffectTypeMap, KeyMap
-from ..values import HarmonyType, ReverbType, ChorusType
+from ..values import (HarmonyType, ReverbType, ChorusType,
+    AcmpSection, BLANK, SwitchBool)
 
 
 @functools.lru_cache()  # cache it, because why not eh
@@ -24,25 +25,25 @@ class _RegLookup(object):
     HARMONY_MAP = EffectTypeMap(HarmonyType)
 
     BOOL_MAP = {
-        0x00: (False, "OFF"),
-        0x7F: (True,  "ON"),
+        0x00: SwitchBool.OFF,
+        0x7F: SwitchBool.ON,
     }
 
     SUSTAIN_MAP = {
-        0x40: (False, "OFF"),
-        0x6E: (True,  "ON"),
+        0x40: SwitchBool.OFF,
+        0x6E: SwitchBool.ON,
     }
 
     AB_MAP = {
-        0xFF: (None, "---"),
-        0x00: (0,    "Main A"),
-        0x05: (5,    "Main B"),
+        0xFF: BLANK,
+        0x00: AcmpSection.MAIN_A,
+        0x05: AcmpSection.MAIN_B,
     }
 
     ACMP_MAP = {
-        0xFF: (None,  "---"),
-        0x00: (False, "OFF"),
-        0x01: (True,  "ON"),
+        0xFF: BLANK,
+        0x00: SwitchBool.OFF,
+        0x01: SwitchBool.ON,
     }
 
     SETTING_FORMATS = (

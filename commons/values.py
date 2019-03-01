@@ -7,7 +7,7 @@ Some Enums.
 import enum
 from collections import namedtuple
 
-from .util import assert_low, ListMapping #, lazy_class_property
+from . import util
 
 _slash_surrogator = str.maketrans("_", "/")
 
@@ -41,7 +41,7 @@ class HarmonyType(enum.Enum):
 
     def __str__(self):
         namestring = str.translate(self.name, _slash_surrogator).title()
-        return "{:02d}({})".format(self.value, namestring)
+        return f"{self.value:02d}({namestring})"
 
     def d_value(self):
         return self.value
@@ -53,16 +53,16 @@ class RCTypeEnum(enum.Enum):
         if self.value > type(self).OFF.value:
             return None
         return self.value
-    
+
     def _numstring(self):
         off = type(self).OFF.value
         if self.value > off:
             return "---"
         else:
             return "{0:0{1}d}".format(self.value, len(str(off)))
-    
+
     def __str__(self):
-        return "{}({})".format(self._numstring(), str.title(self.name))
+        return f"{self._numstring()}({str.title(self.name)})"
 
 
 class ReverbType(RCTypeEnum):
@@ -113,7 +113,7 @@ class RCTypeCodeLookup(object):
             except KeyError:
                 val = self._from_codes[0x00, 0x00]
         return val
-    
+
     def __getitem__(self, key):
         return self._to_codes[key]
 
@@ -143,7 +143,7 @@ ChorusCodes = RCTypeCodeLookup([
     (ChorusType.CHORUS1,  0x42, 0x11),
     (ChorusType.FLANGER,  0x43, 0x00),
     (ChorusType.FLANGER1, 0x43, 0x08),
-    (ChorusType.FLANGER2, 0x43, 0x11),    
+    (ChorusType.FLANGER2, 0x43, 0x11),
 ])
 
 
@@ -156,9 +156,17 @@ class SwitchBool(enum.Enum):
 
     @classmethod
     def from_b(cls, b):
-        assert_low(b)
+        util.assert_low(b)
         return cls(b >= 0x40)
 
+
+class Blank(enum.Enum):
+    BLANK = None
+
+    def __str__(self):
+        return '---'
+
+BLANK = Blank.BLANK
 
 _space_surrogator = str.maketrans("_", " ")
 
@@ -212,7 +220,7 @@ class RootNote(namedtuple("RootNote", "base acc")):
 
     def __new__(cls, base, acc=NoteAcc.NAT):
         if base not in NoteBase or acc not in NoteAcc:
-            raise ValueError("Invalid note {!r} {!r}".format(base, acc))
+            raise ValueError(f"Invalid note {base!r} {acc!r}")
         return super().__new__(cls, base, acc)
 
     def __str__(self):
@@ -230,7 +238,7 @@ class RootNote(namedtuple("RootNote", "base acc")):
         return RootNote(NoteBase(name[0]), NoteAcc.from_name(name[1:]))
 
 
-ROOT_NOTE_SEQ = ListMapping(enumerate(RootNote.from_name(x) for x in
+ROOT_NOTE_SEQ = util.ListMapping(enumerate(RootNote.from_name(x) for x in
     ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "G♯", "A", "B♭", "B"]))
 
 _ENHARMONIA = {note: i for i, note in ROOT_NOTE_SEQ.items()}
@@ -249,40 +257,70 @@ def enharmonic(note_a, note_b):
 
 
 # Classes For Everyone!
-class WrappedIntValue(object):
+class WrappedValue(object):
+    """
+    A class for wrapping values in.
+    """
+    __slots__ = ('value')
+
+    def __init__(self, value):
+        self.value = value
+
+    # Should we do comparisons? How does that work?
+    def __eq__(self, other):
+        return self.value == other.value
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.value!r})"
+
+
+class WrappedIntValue(WrappedValue):
     """
     A class for wrapping int values in.
     """
-    def __init__(self, int_value, format_spec=''):
-        self._int_value = int_value
-        self._format_spec = format_spec
+    __slots__ = ()
 
     def __int__(self):
-        return self._int_value
+        return int(self.value)
+
+
+class FormattedIntValue(WrappedIntValue):
+    __slots__ = ('_format_spec')
+
+    def __init__(self, value, format_spec=''):
+        super().__init__(value)
+        self._format_spec = format_spec
 
     def __str__(self):
-        return format(self._int_value, self._format_spec)
-
-    def hex(self):
-        """
-        Return a hex string (at least 2 digits padded with 0)
-        of the int value
-        """
-        return format(self._int_value, "02X")
+        return format(self.value, self._format_spec)
+    
+    def __repr__(self):
+        return (f'{self.__class__.__name__}'
+                f'({self.value!r}, {self._format_spec!r})')
 
 
 class NoteValue(WrappedIntValue):
-
+    __slots__ = ()
     @property
     def octave(self):
-        return (int(self) // 12) - 2
+        return (self.value // 12) - 2
 
     @property
     def note(self):
-        return ROOT_NOTE_SEQ[int(self) % 12]
-
-    def __repr__(self):
-        return "NoteValue({!r})".format(int(self))
+        return ROOT_NOTE_SEQ[self.value % 12]
 
     def __str__(self):
-        return "{:03d}({!s}{:-d})".format(int(self), self.note.ascii(), self.octave)
+        return f"{self.value:03d}({self.note.ascii()}{self.octave:-d})"
+
+
+class BytesValue(WrappedValue):
+    __slots__ = ()
+
+    def __str__(self):
+        return util.hexspace(self.value)
+
+class UnknownBytesValue(BytesValue):
+    __slots__ = ()
+
+    def __str__(self):
+        return f'<unknown {super().__str__()}>'

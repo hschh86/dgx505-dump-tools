@@ -3,6 +3,7 @@ import collections.abc
 
 from ..util import CachedSequence
 from ..exceptions import MalformedDataError
+from ..values import BLANK, UnknownBytesValue
 from .regvalues import DATA_SPECS
 
 
@@ -47,9 +48,9 @@ class RegData(CachedSequence):
         # (i.e. all the settings for a button are together)
         # but it's more convenient to get and display as bank, then button
         if not 1 <= button <= 2:
-            raise ValueError("Invalid button: {}".format(button))
+            raise ValueError(f"Invalid button: {button}")
         if not 1 <= bank <= 8:
-            raise ValueError("Invalid bank: {}".format(button))
+            raise ValueError(f"Invalid bank: {button}")
         return self[bank-1][button-1]
 
     def iter_settings(self):
@@ -79,11 +80,11 @@ class RegSetting(collections.abc.Mapping):
     Implements the Mapping abc.
     keys are the strings in regvalues.DATA_NAMES, which
     are supposed to be the names in the function menu
-    Values are a namedtuple, with string representation in the vstr attribute
+    Values are a namedtuple
     """
     SettingValue = collections.namedtuple(
         "SettingValue",
-        "prop recorded value vstr bytes unusual")
+        "prop recorded value bytes unusual")
 
     def __init__(self, bank, button, data):
 
@@ -108,21 +109,19 @@ class RegSetting(collections.abc.Mapping):
             unusual = False
             if self.recorded:
                 try:
-                    value, vstr = dfunc(raw_bytes)
+                    value = dfunc(raw_bytes)
                 except KeyError:
                     unusual = True
             else:
                 if all(b == 0 for b in raw_bytes):
-                    value = None
-                    vstr = '---'
+                    value = BLANK
                 else:
                     unusual = True
             if unusual:
-                value = raw_bytes
-                vstr = '<unknown {}>'.format(raw_bytes.hex())
+                value = UnknownBytesValue(raw_bytes)
             # we build the tuple...
             val = self.SettingValue(
-                dname, self.recorded, value, vstr, raw_bytes, unusual)
+                dname, self.recorded, value, raw_bytes, unusual)
             # then save it
             self._dict[dname] = val
             if unusual:
@@ -146,14 +145,14 @@ class RegSetting(collections.abc.Mapping):
         return len(self._dict)
 
     def print_settings(self):
-        print("Bank {}, Button {}:".format(self.bank, self.button))
+        print(f"Bank {self.bank}, Button {self.button}:")
         for key, sval in self.iter_display_order_items():
-            print(" {:>18}: {:>3}".format(key, sval.vstr))
+            print(f" {key:>18}: {sval.value:>3}")
 
     def print_unusual(self):
-        print(" {} unusual values:".format(len(self._unusual)))
+        print(f" {len(self._unusual)} unusual values:")
         for sval in self._unusual:
-            print(" {:>18}: {:>3}".format(sval.prop, sval.vstr))
+            print(f" {sval.prop:>18}: {sval.value:>3}")
 
     def iter_display_order_items(self):
         """
@@ -175,4 +174,4 @@ class RegSetting(collections.abc.Mapping):
     # cereal
     def _cereal(self):
         return collections.OrderedDict(
-            (key, sval.vstr) for key, sval in self.iter_display_order_items())
+            (key, str(sval.value)) for key, sval in self.iter_display_order_items())
