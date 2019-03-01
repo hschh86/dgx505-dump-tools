@@ -13,7 +13,7 @@ from .wrappers import Control, Rpn
 
 def xg_parameter_change(*args, n=0):
     if n >> 4 != 0:
-        raise ValueError("invalid n: {}".format(n))
+        raise ValueError(n)
     return mido.Message(
         'sysex', data=(0x43, 0x10 | n, 0x4C)+args)
 
@@ -33,7 +33,7 @@ def master_tune(mm, ll):
 
 def master_tune_val(value):
     if not (-100 <= value <= 100):
-        raise ValueError("Value out of range: {}".format(value))
+        raise ValueError(value)
     mm, ll = divmod(value + 128, 16)
     return master_tune(mm, ll)
 

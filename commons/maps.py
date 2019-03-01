@@ -24,7 +24,7 @@ class BytesAssertMap(collections.abc.Mapping):
 
     def __getitem__(self, key):
         if key != self.expected.value:
-            raise KeyError("{} not expected".format(key))
+            raise KeyError(f"{key} not expected")
         return self.expected
 
     def __iter__(self):
@@ -62,12 +62,12 @@ class RangeMapBase(collections.abc.Mapping):
     def __getitem__(self, key):
         # we only want Integral numbers
         if not isinstance(key, numbers.Integral):
-            raise KeyError("{} is not integral".format(key))
+            raise KeyError(f"{key} is not integral")
         if key == self.none_val:
             return self.none_obj
         else:
             if key not in self.key_range:
-                raise KeyError("{} is out of range".format(key))
+                raise KeyError(f"{key} is out of range")
             return self.wrapper(key + self.offset)
 
     # because why not
@@ -114,7 +114,7 @@ class RangeMap(RangeMapBase):
 class KeyMap(RangeMapBase):
     """
     KeyMap maps the input numbers to the NoteValue wrappers,
-    which have the string as the note notation used by the DGX-505. 
+    which have the string as the note notation used by the DGX-505.
     """
     def __init__(self):
         wrapper = values.NoteValue
@@ -132,7 +132,7 @@ class EffectTypeMap(collections.abc.Mapping):
         try:
             return self.effect_enum_class(key)
         except ValueError:
-            raise KeyError("No such effect {}".format(key))
+            raise KeyError(f"No such effect {key}")
 
     def __iter__(self):
         for effect in self.effect_enum_class:
@@ -140,4 +140,3 @@ class EffectTypeMap(collections.abc.Mapping):
 
     def __len__(self):
         return len(self.effect_enum_class)
-

@@ -18,12 +18,11 @@ class Voice(collections.namedtuple("Voice",
             n = "???"
         else:
             n = format(self.number, "03d")
-        return "{} {} ({})".format(n, self.name, self.category)
+        return f"{n} {self.name} ({self.category})"
 
     def voice_string_extended(self):
-        return "[{},{},{}] {}".format(
-            self.msb, self.lsb, self.prog, self.voice_string())
-    
+        return f"[{self.msb},{self.lsb},{self.prog}] {self.voice_string()}"
+
     def __str__(self):
         return self.voice_string_extended()
 

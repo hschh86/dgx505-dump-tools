@@ -159,19 +159,19 @@ _LONGFORM_MAP = {
 class UnknownControl(namedtuple('UnknownControl', 'value')):
     __slots__ = ()
     def __str__(self):
-        return "[Control {:02X}]".format(self.value)
+        return f"[Control {self.value:02X}]"
 
 
 class UnknownSysEx(namedtuple('UnknownSysEx', 'value')):
     __slots__ = ()
     def __str__(self):
-        return "[SysEx {}]".format(hexspace(self.value))
+        return f"[SysEx {hexspace(self.value)}]"
 
 
 class UnknownSeqSpec(namedtuple('UnknownSeqSpec', 'value')):
     __slots__ = ()
     def __str__(self):
-        return "[SeqSpec {}]".format(hexspace(self.value))
+        return f"[SeqSpec {hexspace(self.value)}]"
 
 
 class UnknownRpn(namedtuple('UnknownRpn', 'value')):
@@ -183,13 +183,13 @@ class UnknownRpn(namedtuple('UnknownRpn', 'value')):
 class RpnDataCombo(namedtuple('RpnDataCombo', 'control rpn')):
     __slots__ = ()
     def __str__(self):
-        return "{0.control!s}: {0.rpn!s}".format(self)
+        return f"{self.control!s}: {self.rpn!s}"
 
 
 class NoteEvent(namedtuple('NoteEvent', 'note')):
     __slots__ = ()
     def __str__(self):
-        return "Note {!s}".format(self.note)
+        return f"Note {self.note!s}"
 
 class GuideTracks(namedtuple('GuideTracks', 'rh lh')):
     __slots__ = ()
@@ -203,7 +203,7 @@ class GuideTracks(namedtuple('GuideTracks', 'rh lh')):
     def __str__(self):
         return "rh: {}, lh: {}".format(
             self.channel_format(self.rh), self.channel_format(self.lh))
-    
+
     @staticmethod
     def from_byte_channel(byte):
         if byte == 0x00:
@@ -212,7 +212,7 @@ class GuideTracks(namedtuple('GuideTracks', 'rh lh')):
             return byte - 1
         else:
             raise ValueError(byte)
-    
+
     @classmethod
     def from_rl_bytes(cls, rr, ll):
         return cls(cls.from_byte_channel(rr), cls.from_byte_channel(ll))
@@ -221,8 +221,7 @@ class GuideTracks(namedtuple('GuideTracks', 'rh lh')):
 class Bonus(OrderedDict):
     def __str__(self):
         if self:
-            return "({})".format(
-                " ".join("{}={!s}".format(k, v) for k, v in self.items()))
+            return f'({" ".join(f"{k}={v!s}" for k, v in self.items())})'
         else:
             return ""
 
@@ -250,7 +249,7 @@ class WrappedMessage(namedtuple('WrappedMessage', 'message wrap_type value bonus
             if i is not None)
 
     def __repr__(self):
-        return "<{!s} {!r}>".format(self, self.message)
+        return f"<{self!s} {self.message!r}>"
 
 
 class WrappedChannelMessage(WrappedMessage):
@@ -260,4 +259,4 @@ class WrappedChannelMessage(WrappedMessage):
         return self.message.channel
 
     def __str__(self):
-        return "{:X} {}".format(self.channel, super().__str__())
+        return f"{self.channel:X} {super().__str__()}"

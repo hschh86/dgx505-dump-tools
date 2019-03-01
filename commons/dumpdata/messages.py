@@ -142,7 +142,7 @@ class DumpSection(object):
         if self.SECTION_BYTE is None:
             self.SECTION_BYTE = dm.section
         if self.SECTION_NAME is None:
-            self.SECTION_NAME = "{:02X}".format(self.SECTION_BYTE)
+            self.SECTION_NAME = f"{self.SECTION_BYTE:02X}"
 
         if verbose:
             count = 0
@@ -150,7 +150,7 @@ class DumpSection(object):
             expected_run = not_none_get(self.EXPECTED_RUN, "?")
             count_len = len(str(expected_count))
             run_len = len(str(expected_run))
-            logger.info("Section: {}".format(self.SECTION_NAME))
+            logger.info("Section: %s", self.SECTION_NAME)
 
         while not dm.end:
             if dm.header != self.header:
@@ -162,11 +162,9 @@ class DumpSection(object):
             run += dm.padded_size
             if verbose:
                 count += 1
-                logger.info(
-                    ("Message {:>{cl}} of {}, "
-                     "{:>{rl}}/{} data bytes received").format(
-                        count, expected_count, run, expected_run,
-                        cl=count_len, rl=run_len))
+                logger.info("Message %*d of %d, %*d/%d data bytes recieved",
+                    count_len, count, expected_count,
+                    run_len, run, expected_run)
             self.dm_list.append(dm)
 
             try:
@@ -176,8 +174,9 @@ class DumpSection(object):
         # end of section
         if verbose:
             count += 1
-            logger.info("Message {:>{cl}} of {}, end of section".format(
-                count, expected_count, cl=count_len, rl=run_len))
+
+            logger.info("Message %*d of %d, end of section",
+                count_len, count, expected_count)
 
         self.dm_list.append(dm)
 

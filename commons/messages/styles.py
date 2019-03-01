@@ -11,14 +11,14 @@ class Style(collections.namedtuple('Style', 'number name category')):
     __slots__ = ()
 
     def __str__(self):
-        return "{:03d} {}".format(self.number, self.name)
+        return f"{self.number:03d} {self.name}"
 
 class _StyleLookup(object):
     @util.lazy_property
     def numbers(self):
         return table_util.read_csv_table_namedtuple_listmapping(
             'tables/styles.csv', Style, [int, str, str], start=1)
-    
+
     @util.lazy_property
     def names(self):
         return {s.name: s for s in self.numbers.values()}

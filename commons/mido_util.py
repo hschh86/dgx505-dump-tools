@@ -21,7 +21,7 @@ def guess_portname(fragment, portlist):
     for port in portlist:
         if fragment in port:
             return port
-    raise ValueError('Unable to guess port from {!r}'.format(fragment))
+    raise ValueError(f'Unable to guess port from {fragment!r}')
 
 
 def open_input(name=None, guess=False, virtual=False, *args, **kwargs):
@@ -174,7 +174,7 @@ def read_messages_file(filename, mfile=False, log=__name__):
             file_display = "stdin"
             file_context = util.nonclosing_stdstream(file_mode)
         else:
-            file_display = "file {!r}".format(filename)
+            file_display = f"file {filename!r}"
             file_context = open(filename, file_mode)
         logger.info("Reading %s from %s", file_form, file_display)
         with file_context as infile:

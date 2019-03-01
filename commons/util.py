@@ -49,7 +49,7 @@ def not_none_get(value, not_none):
 def assert_low(byte):
     """Raise ValueError if not seven-bit (i.e. 0 <= byte <= 127) integer"""
     if byte >> 7 != 0:
-        raise ValueError("Byte value out of range: {}".format(byte))
+        raise ValueError(f"Byte value out of range: {byte}")
 
 
 # bitarray helpers
@@ -65,7 +65,7 @@ def boolean_bitarray_tuple(integer, length=8):
     Raises ValueError if any higher bits are set to 1
     """
     if integer >= (1 << length):
-        raise ValueError("Some bits are too high: {}".format(integer))
+        raise ValueError(f"Some bits are too high: {integer}")
     return tuple(boolean_bitarray_get(integer, i) for i in range(length))
 
 
@@ -89,7 +89,7 @@ def pack_seven(value, length=None):
     in the sysex message data.
     """
     if value < 0:
-        raise ValueError("Value is negative: {}".format(value))
+        raise ValueError(f"Value is negative: {value}")
     minlen = seven_byte_length(value)
     if length is None:
         length = minlen
@@ -161,7 +161,7 @@ def unpack_variable_length(inbytes, limit=True):
     length of inbytes exceeds four. (set limit=False to override this)
     """
     if limit and len(inbytes) > 4:
-        raise ValueError("Sequence too long: {}".format(len(inbytes)))
+        raise ValueError(f"Sequence too long: {len(inbytes)}")
 
     value = 0
     last = len(inbytes)-1
@@ -181,9 +181,9 @@ def pack_variable_length(value, limit=True):
     Set limit=False to override this.
     """
     if value < 0:
-        raise ValueError("Value is negative: {}".format(value))
+        raise ValueError(f"Value is negative: {value}")
     if limit and value > 0x0FFFFFFF:
-        raise ValueError("Value too large: {}".format(value))
+        raise ValueError(f"Value too large: {value}")
 
     dest = bytearray()
     dest.append(value & 0x7F)
@@ -309,7 +309,7 @@ class nonclosing_stdstream(object):
         elif mode == 'wb':
             self.stream = sys.stdout.buffer
         else:
-            raise ValueError('invalid mode: {!r}'.format(mode))
+            raise ValueError(f'invalid mode: {mode!r}')
 
     def __enter__(self):
         return self.stream
@@ -346,7 +346,7 @@ class ListMapping(collections.abc.Mapping):
         self._list = []
         for key, value in iterable:
             self[key] = value
-    
+
     def __getitem__(self, key):
         index = key - self._start
         if index < 0:
@@ -356,16 +356,16 @@ class ListMapping(collections.abc.Mapping):
             return self._list[key - self._start]
         except IndexError:
             raise KeyError(key)
-    
+
     def __iter__(self):
         return iter(range(self._start, len(self._list)+self._start))
-    
+
     def __len__(self):
         return len(self._list)
-    
+
     # SetItem. We can only set consecutively
     def __setitem__(self, key, value):
         if key == len(self._list)+self._start:
             self._list.append(value)
         else:
-            raise IndexError("Key {!r} added in invalid order".format(key))
+            raise IndexError(f"Key {key!r} added in invalid order")

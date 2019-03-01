@@ -147,12 +147,12 @@ class RegSetting(collections.abc.Mapping):
     def print_settings(self):
         print(f"Bank {self.bank}, Button {self.button}:")
         for key, sval in self.iter_display_order_items():
-            print(f" {key:>18}: {sval.value:>3}")
+            print(f" {key:>18}: {sval.value!s:>3}")
 
     def print_unusual(self):
         print(f" {len(self._unusual)} unusual values:")
         for sval in self._unusual:
-            print(f" {sval.prop:>18}: {sval.value:>3}")
+            print(f" {sval.prop:>18}: {sval.value!s:>3}")
 
     def iter_display_order_items(self):
         """

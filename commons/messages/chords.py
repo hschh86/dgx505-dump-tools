@@ -68,7 +68,7 @@ def byte_chord(chordbytes):
         # Same -> Ordinary
         return Chord(root, ctype)
     elif bt == BASS_CODE:
-        # Extra bass specified 
+        # Extra bass specified
         return Chord(root, ctype, bass)
     raise ValueError(chordbytes)
 
@@ -87,7 +87,7 @@ class Chord(collections.namedtuple('Chord', 'root type bass')):
         if self.bass is None:
             return chordstring
         else:
-            return "{}/{}".format(chordstring, str(self.bass))
+            return f"{chordstring}/{self.bass!s}"
 
     def display(self):
         chordstring = self.type.disp_format.format(str(self.root))
@@ -95,7 +95,7 @@ class Chord(collections.namedtuple('Chord', 'root type bass')):
             # for the cc case, nothing is displayed, even if bass
             return chordstring
         else:
-            return "{}/{}".format(chordstring, str(self.bass))
+            return f"{chordstring}/{self.bass!s}"
 
     def ascii(self):
         return str(self).translate(_asciidental_surrogator)

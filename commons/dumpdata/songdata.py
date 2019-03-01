@@ -118,14 +118,14 @@ class SongDataBlockSystem(object):
             start = end - self.BLOCK_SIZE
             return self._block_data[start:end]
         else:
-            raise IndexError("Invalid index: {}".format(n))
+            raise IndexError(f"Invalid index: {n}")
 
     def get_next_block_number(self, n):
         """
         Returns the number of the block following block n
         """
         if n < 1:
-            raise IndexError("Invalid index: {}".format(n))
+            raise IndexError(f"Invalid index: {n}")
         return self._next_blocks_table[n-1]
 
     def _block_data_iter(self, start_block, length):
@@ -188,7 +188,7 @@ class UserSong(object):
         self.active = active
         self.duration = duration
 
-        self.name = "User Song {}".format(number)
+        self.name = f"User Song {number}"
 
         # create the tracks.
         self._tracks = []

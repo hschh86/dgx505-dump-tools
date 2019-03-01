@@ -291,7 +291,7 @@ class ChannelState(MidiState):
     def feed(self, message):
         # Feed In a Mido Message.
         if message.channel != self._channel:
-            raise ValueError("Incorrect channel: {}".format(message))
+            raise ValueError("Incorrect channel: {message}")
         try:
             method = self._MESSAGE_TYPE_DISPATCHER[message.type]
         except KeyError:
@@ -300,7 +300,7 @@ class ChannelState(MidiState):
         else:
             # Call the method
             return method(self, message)
-    
+
     # Message Type handling
     _MESSAGE_TYPE_DISPATCHER = DispatchDict()
 
@@ -325,14 +325,14 @@ class ChannelState(MidiState):
             # Unknown Control
             control_type = UnknownControl(message.control)
             return WrappedChannelMessage(
-                message, control_type, message.value)        
+                message, control_type, message.value)
         try:
             method = self._CONTROL_DISPATCHER[control_type]
         except KeyError:
             # Shouldn't happen but just in case
-            raise ValueError("Unrecognised message: {}".format(message))
+            raise ValueError(f"Unrecognised message: {message}")
         else:
-            return method(self, message, control_type)    
+            return method(self, message, control_type)
 
     @_MESSAGE_TYPE_DISPATCHER.register("program_change")
     def _handle_program_change(self, message):
@@ -359,7 +359,7 @@ class ChannelState(MidiState):
             return self._handle_offset(message, Special.OCTAVE)
         else:
             return None
-    
+
     # Control type handling
     _CONTROL_DISPATCHER = DispatchDict()
 
@@ -368,50 +368,50 @@ class ChannelState(MidiState):
         # simply set the value.
         return self._set_value(
             message, control_type, message.value)
-    
+
     @_CONTROL_DISPATCHER.register(*SWITCH_CONTROLLERS)
     def _handle_switch(self, message, control_type):
         # map to a switch.
         value = SwitchBool.from_b(message.value)
         return self._set_value(
             message, control_type, value)
-    
+
     @_CONTROL_DISPATCHER.register(*OFFSET_CONTROLLERS)
     def _handle_offset(self, message, control_type):
         # Apply the offset
         value = message.value - 0x40
         return self._set_value(
             message, control_type, value)
-    
+
     @_CONTROL_DISPATCHER.register(Control.DATA_LSB)
     def _handle_data_lsb(self, message, control_type):
         # Don't set anything, just return a wrapped message.
         return WrappedChannelMessage(
             message, control_type, message.value)
-    
+
     @_CONTROL_DISPATCHER.register(Control.DATA_MSB)
     def _handle_data_msb(self, message, control_type):
         # Special MSB RPN handling.
         return self._set_rpn(
             message, control_type, message.value)
-    
+
     @_CONTROL_DISPATCHER.register(Control.DATA_DEC)
     def _handle_data_dec(self, message, control_type):
         return self._set_rpn(
             message, control_type, self[Control.DATA_MSB]-1)
-    
+
     @_CONTROL_DISPATCHER.register(Control.DATA_INC)
     def _handle_data_inc(self, message, control_type):
         return self._set_rpn(
             message, control_type, self[Control.DATA_MSB]+1)
-        
+
     @_CONTROL_DISPATCHER.register(*MODE_CONTROLLERS)
     def _handle_mode(self, message, control_type):
         if control_type is Control.RESET_CONTROLS:
             self.reset_controllers()
         # we don't set anything
         return WrappedChannelMessage(message, control_type, None)
-                
+
     @_CONTROL_DISPATCHER.register(Control.PORTAMENTO_CTRL)
     def _handle_portamento(self, message, control_type):
         # Special case, we don't set anything

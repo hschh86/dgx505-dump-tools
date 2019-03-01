@@ -59,7 +59,7 @@ class RCTypeEnum(enum.Enum):
         if self.value > off:
             return "---"
         else:
-            return "{0:0{1}d}".format(self.value, len(str(off)))
+            return f"{self.value:0{len(str(off))}d}"
 
     def __str__(self):
         return f"{self._numstring()}({str.title(self.name)})"
@@ -293,7 +293,7 @@ class FormattedIntValue(WrappedIntValue):
 
     def __str__(self):
         return format(self.value, self._format_spec)
-    
+
     def __repr__(self):
         return (f'{self.__class__.__name__}'
                 f'({self.value!r}, {self._format_spec!r})')

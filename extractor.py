@@ -26,10 +26,10 @@ class UserSongNumberListAction(argparse.Action):
             for value in values:
                 if value not in SONGS:
                     raise argparse.ArgumentError(
-                        self, "Invalid song number: {}".format(value))
+                        self, f"Invalid song number: {value}")
                 if value in seen:
                     raise argparse.ArgumentError(
-                        self, "Duplicate song number: {}".format(value))
+                        self, f"Duplicate song number: {value}")
                 seen.add(value)
             setattr(namespace, self.dest, values)
 
@@ -49,7 +49,7 @@ class EnsureSingleFormatAction(argparse.Action):
             invalid = True
         if invalid:
             raise argparse.ArgumentError(
-                self, "Invalid format: {!r}".format(values))
+                self, f"Invalid format: {values!r}")
         else:
             setattr(namespace, self.dest, values)
 
@@ -84,15 +84,15 @@ class RegBankButtonListAction(argparse.Action):
             def addident(bank, button):
                 if bank not in BANKS:
                     raise argparse.ArgumentError(
-                        self, "Invalid bank {},{}".format(bank, button))
+                        self, f"Invalid bank {bank},{button}")
                 if button not in BUTTONS:
                     raise argparse.ArgumentError(
-                        self, "Invalid button {},{}".format(bank, button))
+                        self, f"Invalid button {bank},{button}")
                 bt = (bank, button)
                 if bt in seen:
                     raise argparse.ArgumentError(
                         self,
-                        "Duplicate identifier {},{}".format(bank, button))
+                        f"Duplicate identifier {bank},{button}")
                 seen.add(bt)
                 value_list.append(bt)
 
@@ -104,7 +104,7 @@ class RegBankButtonListAction(argparse.Action):
                         x, y = map(int, value.split(","))
                     except (IndexError, ValueError):
                         raise argparse.ArgumentError(
-                            self, "Invalid argument {!r}".format(value))
+                            self, f"Invalid argument {value!r}")
                     addident(x, y)
                 else:
                     addident(x, 1)
