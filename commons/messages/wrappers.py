@@ -264,7 +264,7 @@ class WrappedChannelMessage(WrappedMessage):
 class WrappedProgramChangeMessage(WrappedChannelMessage):
 
     def __new__(cls, message, value):
-        return super().__new__(message=message, 
+        return super().__new__(cls, message=message, 
             wrap_type=MessageType.PROGRAM_CHANGE, value=value)        
 
     def __str__(self):

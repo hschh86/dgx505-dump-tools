@@ -39,8 +39,8 @@ from ..values import (
 from .wrappers import (
     MessageType, Control, Rpn, SysEx, SeqSpec, Special,
     UnknownControl, UnknownSysEx, UnknownRpn, UnknownSeqSpec,
-    RpnDataCombo, NoteEvent, bonus_strings, Bonus,
-    WrappedMessage, WrappedChannelMessage, GuideTracks)
+    RpnDataCombo, NoteEvent, bonus_strings, Bonus, GuideTracks,
+    WrappedMessage, WrappedChannelMessage, WrappedProgramChangeMessage)
 from . import exclusives
 from ..tables import voices, styles, chords
 from .. import util
@@ -339,8 +339,8 @@ class ChannelState(MidiState):
     def _handle_program_change(self, message):
         # Do we report a no-change?
         voice = self._change_program(message.program)
-        return WrappedChannelMessage(
-            message, MessageType.PROGRAM_CHANGE, voice)
+        return WrappedProgramChangeMessage(
+            message, voice)
 
     @_MESSAGE_TYPE_DISPATCHER.register("pitchwheel")
     def _handle_pitchwheel(self, message):
