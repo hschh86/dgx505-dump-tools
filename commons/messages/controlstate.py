@@ -41,7 +41,8 @@ from .wrappers import (
     UnknownControl, UnknownSysEx, UnknownRpn, UnknownSeqSpec,
     RpnDataCombo, NoteEvent, bonus_strings, Bonus,
     WrappedMessage, WrappedChannelMessage, GuideTracks)
-from . import voices, exclusives, styles, chords
+from . import exclusives
+from ..tables import voices, styles, chords
 from .. import util
 
 

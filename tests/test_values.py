@@ -1,9 +1,8 @@
 import pytest
 
 from commons import values, maps
-from commons.messages import (
-    controls, controlstate, wrappers, voices, chords, styles,
-    exclusives)
+from commons.messages import controls, controlstate, wrappers, exclusives
+from commons.tables import voices, styles, chords
 
 
 def test_notes():

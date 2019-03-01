@@ -6,7 +6,7 @@ For working with the controls / sysex / etc midi messages
 
 import mido
 
-from . import voices
+from ..tables import voices
 
 from ..util import lazy_property
 from .wrappers import Control, Rpn
