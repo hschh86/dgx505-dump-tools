@@ -7,8 +7,8 @@ from commons.exceptions import MessageSequenceError, NotRecordedError
 
 @pytest.fixture(scope='module')
 def ffab():
-    ffa = e._read_dump_from_filename('test_data/dumptestfull.syx')
-    ffb = e._read_dump_from_filename('test_data/dumptestfull.txt')
+    ffa = e._read_dump_from_filename('tests/data/dumps/dumptestfull.syx')
+    ffb = e._read_dump_from_filename('tests/data/dumps/dumptestfull.txt')
     return ffa, ffb
 
 
@@ -23,7 +23,7 @@ def ffab():
 
 @pytest.fixture(scope='module')
 def jcereal():
-    with open('test_data/dump.json') as dj:
+    with open('tests/data/json/dump.json') as dj:
         json_cereal = json.load(dj)
     return json_cereal
 
@@ -36,9 +36,9 @@ def test_equivalence(ffab, jcereal):
 
 def test_incomplete():
     with pytest.raises(MessageSequenceError):
-        e._read_dump_from_filename('test_data/dumptestpartial.syx')
+        e._read_dump_from_filename('tests/data/dumps/dumptestpartial.syx')
     with pytest.raises(MessageSequenceError):
-        e._read_dump_from_filename('test_data/dumptestpartial.txt')
+        e._read_dump_from_filename('tests/data/dumps/dumptestpartial.txt')
 
 
 def test_midi(ffab):
@@ -47,7 +47,7 @@ def test_midi(ffab):
     with pytest.raises(NotRecordedError):
         ffab[0].song_data.songs[3].midi
 
-    with open('test_data/UserSong2.mid', 'rb') as u2m:
+    with open('tests/data/outputs/UserSong2.mid', 'rb') as u2m:
         us2 = u2m.read()
     assert (us2 == ffab[0].song_data.songs[1].midi
             == ffab[1].song_data.songs[1].midi)

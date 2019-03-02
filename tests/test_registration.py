@@ -6,9 +6,9 @@ from commons.dumpdata.messages import RegDumpSection
 
 
 @pytest.mark.parametrize("datafile, valuefile", [
-    ('test_data/regtest1.txt', 'test_data/regtest1.json'),
-    ('test_data/regtest2.txt', 'test_data/regtest2.json'),
-    ('test_data/regtest3.syx', 'test_data/regtest3.json')
+    ('tests/data/dumps/regtest1.txt', 'tests/data/json/regtest1.json'),
+    ('tests/data/dumps/regtest2.txt', 'tests/data/json/regtest2.json'),
+    ('tests/data/dumps/regtest3.syx', 'tests/data/json/regtest3.json')
 ])
 def test_reg(datafile, valuefile):
     with open(datafile, 'rb') as infile:

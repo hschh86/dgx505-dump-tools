@@ -224,13 +224,13 @@ Bank 3, Button 1:
      Harmony Volume: ---
 
 Bank 3, Button 2:
-       Style number: 092
+       Style number: 092 Slowfox
       Accompaniment:  ON
-           Main A/B: Main A
+           Main A/B: MAIN A
               Tempo: 080
-  Main Voice number: 060
-  Dual Voice number: 201
- Split Voice number: 003
+  Main Voice number: 060 Violin
+  Dual Voice number: 201 Trem Organ Flute
+ Split Voice number: 003 Grand Piano
             Harmony: OFF
                Dual: OFF
               Split:  ON
